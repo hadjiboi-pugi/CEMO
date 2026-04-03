@@ -1,13 +1,20 @@
 package com.example.cemo.viewmodel
 
 import android.app.Application
+import android.content.ComponentName
+import android.content.Context
+import android.content.Intent
+import android.content.ServiceConnection
+import android.os.IBinder
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.cemo.data.ble.BleManager
+import com.example.cemo.data.ble.BleForegroundService
 import com.example.cemo.data.model.BleStatus
 import com.example.cemo.data.model.DashboardState
 import com.example.cemo.data.model.ScannedDevice
 import com.example.cemo.data.model.WasteEntry
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -16,26 +23,78 @@ import kotlinx.coroutines.launch
 
 class WasteViewModel(application: Application) : AndroidViewModel(application) {
 
-    // ── BLE ───────────────────────────────────────────────────────────────────
-    val bleManager      = BleManager(application)
-    val bleStatus:       StateFlow<BleStatus>            = bleManager.status
-    val scannedDevices:  StateFlow<List<ScannedDevice>>  = bleManager.scannedDevices
+    // ── Service binding ───────────────────────────────────────────────────────
 
-    // ── Dashboard State ───────────────────────────────────────────────────────
+    private var bleService: BleForegroundService? = null
+    private var sensorJob: Job? = null
+
+    private val serviceConnection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName, binder: IBinder) {
+            bleService = (binder as BleForegroundService.LocalBinder).getService()
+            observeBleData()
+        }
+
+        override fun onServiceDisconnected(name: ComponentName) {
+            sensorJob?.cancel()
+            bleService = null
+        }
+    }
+
+    // ── Exposed flows ─────────────────────────────────────────────────────────
+
+    private val _bleStatus = MutableStateFlow<BleStatus>(BleStatus.Disconnected)
+    val bleStatus: StateFlow<BleStatus> = _bleStatus.asStateFlow()
+
+    private val _scannedDevices = MutableStateFlow<List<ScannedDevice>>(emptyList())
+    val scannedDevices: StateFlow<List<ScannedDevice>> = _scannedDevices.asStateFlow()
+
     private val _uiState = MutableStateFlow(DashboardState())
     val uiState: StateFlow<DashboardState> = _uiState.asStateFlow()
 
+    // ── Init ──────────────────────────────────────────────────────────────────
+
     init {
-        observeBleData()
+        val ctx = application.applicationContext
+        val intent = Intent(ctx, BleForegroundService::class.java)
+        ContextCompat.startForegroundService(ctx, intent)
+        ctx.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
 
-    // ── BLE data → state (realtime) ───────────────────────────────────────────
+    // ── Observe BleManager flows ──────────────────────────────────────────────
 
     private fun observeBleData() {
-        viewModelScope.launch {
-            bleManager.sensorData.collect { data ->
+        val manager = bleService?.bleManager ?: return
 
-                // Always update all sensor readings immediately
+        // 1. Mirror status flow + update notification title
+        viewModelScope.launch {
+            manager.status.collect { status ->
+                _bleStatus.value = status
+
+                val title = when (status) {
+                    is BleStatus.Connected    -> "Connected · ${status.deviceName}"
+                    is BleStatus.Connecting   -> "Connecting…"
+                    is BleStatus.Scanning     -> "Scanning for devices…"
+                    is BleStatus.Disconnected -> "CEMO – Disconnected"
+                    is BleStatus.Error        -> "Error: ${status.message}"
+                }
+                bleService?.updateStatus(title)
+            }
+        }
+
+        // 2. Mirror scanned devices
+        viewModelScope.launch {
+            manager.scannedDevices.collect { _scannedDevices.value = it }
+        }
+
+        // 3. Process sensor data → dashboard state + notification body
+        sensorJob = viewModelScope.launch {
+            manager.sensorData.collect { data ->
+                data ?: return@collect
+
+                val previousWeight = _uiState.value.currentWeight
+                val weightDelta    = data.weightKg - previousWeight
+
+                // Update dashboard state
                 _uiState.update { state ->
                     state.copy(
                         currentWeight = data.weightKg.coerceAtMost(state.maxCapacity),
@@ -46,9 +105,7 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 }
 
-                // Only add a history entry when weight increases significantly
-                val previousWeight = _uiState.value.currentWeight
-                val weightDelta    = data.weightKg - previousWeight
+                // Auto-log a waste entry when weight increases meaningfully
                 if (weightDelta > 0.05) {
                     val entry = createEntry(
                         weight = weightDelta,
@@ -56,24 +113,31 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
                         hum    = data.humidityPct
                     )
                     _uiState.update { state ->
-                        val newHistory = (listOf(entry) + state.history).take(20)
                         state.copy(
-                            history      = newHistory,
+                            history      = (listOf(entry) + state.history).take(20),
                             totalMethane = state.totalMethane + entry.methanePotential
                         )
                     }
                 }
+
+                // Push live readings to the notification body
+                bleService?.updateSensorValues(
+                    "⚖ ${"%.2f".format(data.weightKg)} kg  " +
+                            "🌡 ${"%.1f".format(data.temperatureC)}°C  " +
+                            "💧 ${"%.1f".format(data.humidityPct)}%  "
+
+                )
             }
         }
     }
 
     // ── BLE control ───────────────────────────────────────────────────────────
 
-    fun startScan()                      = bleManager.startScan()
-    fun stopScan()                       = bleManager.stopScan()
-    fun connectToDevice(address: String) = bleManager.connectToAddress(address)
-    fun disconnectBle()                  = bleManager.disconnect()
-    fun connectBle()                     = bleManager.startScan()
+    fun startScan()                      = bleService?.bleManager?.startScan()
+    fun stopScan()                       = bleService?.bleManager?.stopScan()
+    fun connectToDevice(address: String) = bleService?.bleManager?.connectToAddress(address)
+    fun disconnectBle()                  = bleService?.bleManager?.disconnect()
+    fun connectBle()                     = bleService?.bleManager?.startScan()
 
     // ── Waste operations ──────────────────────────────────────────────────────
 
@@ -98,9 +162,8 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
     fun addWaste(weight: Double) {
         val newEntry = createEntry(weight)
         _uiState.update { state ->
-            val newHistory = (listOf(newEntry) + state.history).take(20)
             state.copy(
-                history       = newHistory,
+                history       = (listOf(newEntry) + state.history).take(20),
                 currentWeight = (state.currentWeight + weight).coerceAtMost(state.maxCapacity),
                 totalMethane  = state.totalMethane + newEntry.methanePotential
             )
@@ -111,8 +174,12 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(currentWeight = 0.0) }
     }
 
+    // ── Cleanup ───────────────────────────────────────────────────────────────
+
     override fun onCleared() {
         super.onCleared()
-        bleManager.disconnect()
+        sensorJob?.cancel()
+        getApplication<Application>().unbindService(serviceConnection)
+        // Service stays running — call disconnectBle() to fully stop it
     }
 }

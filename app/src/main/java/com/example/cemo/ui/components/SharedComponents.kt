@@ -20,29 +20,22 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.cemo.ui.theme.PrimaryGreen
+import androidx.compose.ui.res.painterResource
+import com.example.cemo.R
+import androidx.compose.foundation.Image
+import androidx.compose.ui.draw.clip
+
 
 @Composable
 fun AppLogo(size: Dp = 80.dp) {
-    Surface(
-        modifier = Modifier.size(size),
-        color = PrimaryGreen,
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                Icons.Default.Delete, contentDescription = null,
-                tint = Color.White, modifier = Modifier.size(size * 0.6f)
-            )
-            Icon(
-                Icons.Default.Eco, contentDescription = null,
-                tint = Color.White,
-                modifier = Modifier
-                    .size(size * 0.3f)
-                    .align(Alignment.BottomEnd)
-                    .padding(4.dp)
-            )
-        }
-    }
+    Image(
+        painter = painterResource(id = R.drawable.app_icon),
+        contentDescription = "App Logo",
+        modifier = Modifier
+            .size(size)
+            // Add the clip modifier to round the edges
+            .clip(RoundedCornerShape(12.dp))
+    )
 }
 
 @Composable

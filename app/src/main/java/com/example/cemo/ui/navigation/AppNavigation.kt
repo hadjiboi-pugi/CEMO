@@ -56,13 +56,14 @@ fun MainContainer(navController: NavController) {
                         .fillMaxHeight()
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        AppLogo(32.dp)
+                        // Assuming AppLogo also accepts sizing, keeping it at 32.dp or larger
+                        AppLogo(40.dp)
                         Spacer(modifier = Modifier.width(12.dp))
                         Text(
                             "CEMO",
                             color      = MaterialTheme.colorScheme.onPrimary,
                             fontWeight = FontWeight.Bold,
-                            fontSize   = 18.sp
+                            fontSize   = 22.sp // Slightly larger for app title hierarchy
                         )
                     }
                     Spacer(modifier = Modifier.height(32.dp))
@@ -92,15 +93,20 @@ fun MainContainer(navController: NavController) {
             topBar = {
                 CenterAlignedTopAppBar(
                     title = { Text(currentScreen, fontWeight = FontWeight.Bold) },
-                    actions = {
+                    // UX FIX: Moved Hamburger menu to the leading edge (NavigationIcon)
+                    navigationIcon = {
                         IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                            Icon(Icons.Default.Menu, null)
+                            Icon(
+                                imageVector = Icons.Default.Menu,
+                                contentDescription = "Open Navigation Menu", // UX FIX: Added Accessibility
+                                modifier = Modifier.size(32.dp) // UX FIX: Increased icon size
+                            )
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                         containerColor         = MaterialTheme.colorScheme.surface,
                         titleContentColor      = MaterialTheme.colorScheme.onSurface,
-                        actionIconContentColor = MaterialTheme.colorScheme.onSurface
+                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
                     )
                 )
             },
@@ -127,26 +133,26 @@ fun DrawerItem(
 ) {
     Surface(
         onClick  = onClick,
-        color    = if (isSelected) MaterialTheme.colorScheme.onPrimary
-        else MaterialTheme.colorScheme.primary,
+        color    = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
         shape    = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
+        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp) // Good implicit touch target size maintained
     ) {
         Row(
             modifier          = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Icon(
-                icon, null,
-                tint = if (isSelected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onPrimary
+                imageVector = icon,
+                contentDescription = label, // UX FIX: Added Accessibility
+                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(28.dp) // UX FIX: Increased icon size for better visibility
             )
             Spacer(modifier = Modifier.width(16.dp))
             Text(
-                label,
-                color      = if (isSelected) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onPrimary,
-                fontWeight = FontWeight.Bold
+                text = label,
+                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimary,
+                fontWeight = FontWeight.Bold,
+                fontSize = 16.sp // Ensured text matches the visual weight of the new icon size
             )
         }
     }

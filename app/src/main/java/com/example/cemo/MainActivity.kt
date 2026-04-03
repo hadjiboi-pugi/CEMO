@@ -11,6 +11,14 @@ import com.example.cemo.ui.theme.CemoTheme
 
 class MainActivity : ComponentActivity() {
 
+    // ── Permission launchers ──────────────────────────────────────────────────
+
+    private val requestNotificationPermission = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) {
+        // granted or denied — service notification shows if granted
+    }
+
     private val requestBlePermissions = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
@@ -20,10 +28,29 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // ── Lifecycle ─────────────────────────────────────────────────────────────
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Request BLE permissions on Android 12+
+        requestPermissions()
+
+        setContent {
+            CemoTheme {
+                AppNavigation()
+            }
+        }
+    }
+
+    // ── Permission requests ───────────────────────────────────────────────────
+
+    private fun requestPermissions() {
+        // Android 13+ requires POST_NOTIFICATIONS to show foreground service notification
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        // Android 12+ requires BLUETOOTH_SCAN + BLUETOOTH_CONNECT at runtime
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             requestBlePermissions.launch(
                 arrayOf(
@@ -31,12 +58,6 @@ class MainActivity : ComponentActivity() {
                     Manifest.permission.BLUETOOTH_CONNECT
                 )
             )
-        }
-
-        setContent {
-            CemoTheme {
-                AppNavigation()
-            }
         }
     }
 }

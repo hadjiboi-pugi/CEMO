@@ -22,14 +22,29 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cemo.data.model.BleStatus
 import com.example.cemo.data.model.ScannedDevice
 import com.example.cemo.viewmodel.WasteViewModel
+import kotlinx.coroutines.delay
 
 @Composable
 fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
     val bleStatus      by viewModel.bleStatus.collectAsStateWithLifecycle()
     val scannedDevices by viewModel.scannedDevices.collectAsStateWithLifecycle()
-    val isScanning     = bleStatus is BleStatus.Scanning
-    val isConnected    = bleStatus is BleStatus.Connected
-    val isConnecting   = bleStatus is BleStatus.Connecting
+
+    val isScanning   = bleStatus is BleStatus.Scanning
+    val isConnected  = bleStatus is BleStatus.Connected
+    val isConnecting = bleStatus is BleStatus.Connecting
+
+    // Cooldown guard — prevents button spam causing race conditions
+    var buttonCooldown by remember { mutableStateOf(false) }
+
+    // Reset cooldown whenever status settles to a final state
+    LaunchedEffect(bleStatus) {
+        when (bleStatus) {
+            is BleStatus.Connected,
+            is BleStatus.Disconnected,
+            is BleStatus.Error -> { delay(300); buttonCooldown = false }
+            else -> Unit
+        }
+    }
 
     val rotation by rememberInfiniteTransition(label = "scan").animateFloat(
         initialValue  = 0f,
@@ -39,7 +54,7 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
     )
 
     Column(
-        modifier = Modifier
+        modifier            = Modifier
             .fillMaxSize()
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -55,7 +70,7 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(
-                    modifier         = Modifier
+                    modifier = Modifier
                         .size(72.dp)
                         .background(
                             if (isConnected) MaterialTheme.colorScheme.primaryContainer
@@ -89,12 +104,18 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
                     fontSize   = 14.sp
                 )
 
-                // ── Action buttons — locked when connected ────────────────
+                // ── Action buttons ────────────────────────────────────────
                 when {
                     isConnected -> {
                         OutlinedButton(
-                            onClick  = { viewModel.disconnectBle() },
+                            onClick  = {
+                                if (!buttonCooldown) {
+                                    buttonCooldown = true
+                                    viewModel.disconnectBle()
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth(),
+                            enabled  = !buttonCooldown,
                             colors   = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.error
                             )
@@ -103,7 +124,9 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
                             Spacer(Modifier.width(6.dp))
                             Text("Disconnect")
                         }
+
                     }
+
                     isConnecting -> {
                         Button(
                             onClick  = {},
@@ -111,17 +134,25 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             CircularProgressIndicator(
-                                modifier  = Modifier.size(16.dp),
-                                color     = MaterialTheme.colorScheme.onPrimary,
+                                modifier    = Modifier.size(16.dp),
+                                color       = MaterialTheme.colorScheme.onPrimary,
                                 strokeWidth = 2.dp
                             )
                             Spacer(Modifier.width(8.dp))
                             Text("Connecting…")
                         }
                     }
+
                     else -> {
                         Button(
-                            onClick  = { if (isScanning) viewModel.stopScan() else viewModel.startScan() },
+                            onClick  = {
+                                if (!buttonCooldown) {
+                                    buttonCooldown = true
+                                    if (isScanning) viewModel.stopScan()
+                                    else viewModel.startScan()
+                                }
+                            },
+                            enabled  = !buttonCooldown,
                             modifier = Modifier.fillMaxWidth(),
                             colors   = ButtonDefaults.buttonColors(
                                 containerColor = if (isScanning)
@@ -141,15 +172,15 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
                         }
+
                     }
                 }
             }
         }
 
-        // ── Device list — hidden when connected ───────────────────────────
+        // ── Device list ───────────────────────────────────────────────────
         when {
             isConnected -> {
-                // Show connected device info instead of scan list
                 val deviceName = (bleStatus as BleStatus.Connected).deviceName
                 Card(
                     modifier = Modifier.fillMaxWidth(),
@@ -182,7 +213,6 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
                             )
                         }
                         Spacer(Modifier.weight(1f))
-                        // Pulsing green dot
                         val pulse by rememberInfiniteTransition(label = "pulse").animateFloat(
                             initialValue  = 0.4f,
                             targetValue   = 1f,
@@ -220,8 +250,13 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
                         DeviceCard(
                             device       = device,
                             isCemo       = device.name == "CEMO-ESP32",
-                            isConnecting = isConnecting,
-                            onConnect    = { viewModel.connectToDevice(device.address) }
+                            isConnecting = isConnecting || buttonCooldown,
+                            onConnect    = {
+                                if (!buttonCooldown && !isConnecting) {
+                                    buttonCooldown = true
+                                    viewModel.connectToDevice(device.address)
+                                }
+                            }
                         )
                     }
                 }
@@ -286,9 +321,9 @@ private fun DeviceCard(
             }
 
             Button(
-                onClick  = onConnect,
-                enabled  = !isConnecting,
-                colors   = ButtonDefaults.buttonColors(
+                onClick        = onConnect,
+                enabled        = !isConnecting,
+                colors         = ButtonDefaults.buttonColors(
                     containerColor = if (isCemo) MaterialTheme.colorScheme.primary
                     else MaterialTheme.colorScheme.surfaceVariant,
                     contentColor   = if (isCemo) MaterialTheme.colorScheme.onPrimary
@@ -307,7 +342,9 @@ private fun DeviceCard(
 @Composable
 private fun EmptyState() {
     Column(
-        modifier            = Modifier.fillMaxWidth().padding(top = 48.dp),
+        modifier            = Modifier
+            .fillMaxWidth()
+            .padding(top = 48.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
