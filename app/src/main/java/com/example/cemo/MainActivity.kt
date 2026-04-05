@@ -8,6 +8,10 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import com.example.cemo.ui.navigation.AppNavigation
 import com.example.cemo.ui.theme.CemoTheme
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 class MainActivity : ComponentActivity() {
 
@@ -30,10 +34,21 @@ class MainActivity : ComponentActivity() {
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
+    private var appReady = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
+
+        splashScreen.setKeepOnScreenCondition { !appReady }
+
         super.onCreate(savedInstanceState)
 
         requestPermissions()
+
+        lifecycleScope.launch {
+            delay(2000L)
+            appReady = true
+        }
 
         setContent {
             CemoTheme {
@@ -42,15 +57,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        AppState.isInForeground = true
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppState.isInForeground = false
+    }
+
     // ── Permission requests ───────────────────────────────────────────────────
 
     private fun requestPermissions() {
-        // Android 13+ requires POST_NOTIFICATIONS to show foreground service notification
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestNotificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        // Android 12+ requires BLUETOOTH_SCAN + BLUETOOTH_CONNECT at runtime
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             requestBlePermissions.launch(
                 arrayOf(

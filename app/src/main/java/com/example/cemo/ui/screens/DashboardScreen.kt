@@ -1,5 +1,9 @@
 package com.example.cemo.ui.screens
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.content.Context
+import android.content.Intent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -13,12 +17,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cemo.data.model.BleStatus
+import com.example.cemo.ui.dialog.BluetoothOffDialog
 import com.example.cemo.ui.components.InputField
 import com.example.cemo.ui.components.MetricSmallCard
 import com.example.cemo.ui.components.SectionTitle
@@ -37,10 +43,35 @@ fun DashboardScreen(viewModel: WasteViewModel = viewModel()) {
     val sdf       = remember { SimpleDateFormat("MMM dd, HH:mm", Locale.US) }
     var showAddDialog by remember { mutableStateOf(false) }
 
+    // ── Bluetooth off alert ───────────────────────────────────────────────
+    val context = LocalContext.current
+    var showBluetoothAlert by remember { mutableStateOf(false) }
+
+    fun isBluetoothOn(): Boolean {
+        val bm = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        return bm.adapter?.isEnabled == true
+    }
+
+    LaunchedEffect(bleStatus) {
+        if (bleStatus is BleStatus.BluetoothOff) {
+            showBluetoothAlert = true
+        }
+    }
+
+    if (showBluetoothAlert) {
+        BluetoothOffDialog(
+            onDismiss = { showBluetoothAlert = false },
+            onEnable  = {
+                showBluetoothAlert = false
+                context.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            }
+        )
+    }
+
     if (showAddDialog) {
         AddWasteDialog(
             onDismiss = { showAddDialog = false },
-            onAdd = { weight ->
+            onAdd     = { weight ->
                 viewModel.addWaste(weight)
                 showAddDialog = false
             }
@@ -48,17 +79,20 @@ fun DashboardScreen(viewModel: WasteViewModel = viewModel()) {
     }
 
     LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
+        modifier       = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ){
         // ── BLE Status Banner ─────────────────────────────────────────────
         item {
             BleBanner(
                 status       = bleStatus,
-                onConnect    = { viewModel.connectBle() },
-                onDisconnect = { viewModel.disconnectBle() }
+                onConnect    = {
+                    if (!isBluetoothOn()) showBluetoothAlert = true
+                    else viewModel.connectBle()
+                },
+                onDisconnect = { viewModel.disconnectBle() },
+                onStop       = { viewModel.stopScan() }
             )
         }
 
@@ -66,11 +100,17 @@ fun DashboardScreen(viewModel: WasteViewModel = viewModel()) {
         item {
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors   = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
+                // ✅ Just a plain Column inside the Card — no verticalScroll here
+                Column(modifier = Modifier.padding(16.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(80.dp), contentAlignment = Alignment.Center) {
+                        Box(
+                            modifier         = Modifier.size(80.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
                             val progress = (state.currentWeight / state.maxCapacity).toFloat()
                             CircularProgressIndicator(
                                 progress    = { progress },
@@ -81,7 +121,7 @@ fun DashboardScreen(viewModel: WasteViewModel = viewModel()) {
                             Text(
                                 "${(progress * 100).toInt()}%",
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color      = MaterialTheme.colorScheme.onSurface
                             )
                         }
                         Spacer(modifier = Modifier.width(24.dp))
@@ -89,42 +129,69 @@ fun DashboardScreen(viewModel: WasteViewModel = viewModel()) {
                             Text(
                                 "CURRENT LOAD",
                                 fontSize = 10.sp,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                color    = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
                                 "${String.format(Locale.US, "%.2f", state.currentWeight)} kg",
-                                fontSize = 32.sp,
+                                fontSize   = 32.sp,
                                 fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                color      = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
                                 "Methane Yield: ${String.format(Locale.US, "%.3f", state.totalMethane)} kg",
                                 fontSize = 12.sp,
-                                color = MaterialTheme.colorScheme.primary
+                                color    = MaterialTheme.colorScheme.primary
                             )
                         }
                     }
+
                     Spacer(modifier = Modifier.height(16.dp))
+
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment     = Alignment.CenterVertically
                     ) {
                         Button(
-                            onClick = { showAddDialog = true },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                            onClick        = { showAddDialog = true },
+                            modifier       = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            colors         = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
                         ) {
-                            Icon(Icons.Default.Add, null, tint = MaterialTheme.colorScheme.onPrimary)
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = null,
+                                tint     = MaterialTheme.colorScheme.onPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
                             Spacer(Modifier.width(4.dp))
-                            Text("Add Waste", color = MaterialTheme.colorScheme.onPrimary)
+                            Text(
+                                "Add Waste",
+                                color    = MaterialTheme.colorScheme.onPrimary,
+                                fontSize = 13.sp,
+                                softWrap = false
+                            )
                         }
                         OutlinedButton(
-                            onClick = { viewModel.resetBin() },
-                            modifier = Modifier.weight(1f),
-                            colors = ButtonDefaults.outlinedButtonColors(
+                            onClick        = { viewModel.resetBin() },
+                            modifier       = Modifier
+                                .weight(1f)
+                                .heightIn(min = 48.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                            colors         = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.onSurface
                             )
-                        ) { Text("Empty Bin") }
+                        ) {
+                            Text(
+                                "Empty Bin",
+                                fontSize = 13.sp,
+                                softWrap = false
+                            )
+                        }
                     }
                 }
             }
@@ -156,21 +223,26 @@ fun DashboardScreen(viewModel: WasteViewModel = viewModel()) {
         items(state.history) { entry ->
             Card(
                 modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+                colors   = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             ) {
-                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier          = Modifier.padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.primary)
                     Spacer(modifier = Modifier.width(16.dp))
                     Column {
                         Text(
                             sdf.format(Date(entry.timestamp)),
                             fontSize = 12.sp,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            color    = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
                             "Weight: ${entry.weightAdded}kg | CH₄: ${String.format("%.3f", entry.methanePotential)}kg",
                             fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
+                            color      = MaterialTheme.colorScheme.onSurface
                         )
                     }
                 }
@@ -182,16 +254,26 @@ fun DashboardScreen(viewModel: WasteViewModel = viewModel()) {
 // ── BLE Banner ────────────────────────────────────────────────────────────────
 
 private data class BleColors(
-    val bg: Color, val fg: Color, val label: String, val showConnect: Boolean
+    val bg: Color,
+    val fg: Color,
+    val label: String,
+    val showConnect: Boolean
 )
 
 @Composable
 fun BleBanner(
     status: BleStatus,
     onConnect: () -> Unit,
-    onDisconnect: () -> Unit
+    onDisconnect: () -> Unit,
+    onStop: () -> Unit
 ) {
     val c = when (status) {
+        is BleStatus.BluetoothOff -> BleColors(
+            bg = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
+            fg = MaterialTheme.colorScheme.error,
+            label = "Bluetooth is off",
+            showConnect = true
+        )
         is BleStatus.Disconnected -> BleColors(
             bg = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
             fg = MaterialTheme.colorScheme.error,
@@ -225,24 +307,63 @@ fun BleBanner(
     }
 
     Surface(
-        color = c.bg,
-        shape = RoundedCornerShape(12.dp),
+        color    = c.bg,
+        shape    = RoundedCornerShape(12.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+            modifier          = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Box(modifier = Modifier.size(8.dp).background(c.fg, CircleShape))
+            Box(modifier = Modifier
+                .size(8.dp)
+                .background(c.fg, CircleShape))
             Spacer(Modifier.width(8.dp))
-            Text(c.label, color = c.fg, fontSize = 12.sp, modifier = Modifier.weight(1f))
-            if (c.showConnect) {
-                TextButton(onClick = onConnect, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    Text("Connect", color = c.fg, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+            Text(
+                c.label,
+                color    = c.fg,
+                fontSize = 12.sp,
+                modifier = Modifier.weight(1f)
+            )
+            when {
+                c.showConnect -> {
+                    TextButton(
+                        onClick        = onConnect,
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Text(
+                            if (status is BleStatus.BluetoothOff) "Enable" else "Connect",
+                            color      = c.fg,
+                            fontWeight = FontWeight.Bold,
+                            fontSize   = 12.sp
+                        )
+                    }
                 }
-            } else if (status is BleStatus.Connected) {
-                TextButton(onClick = onDisconnect, contentPadding = PaddingValues(horizontal = 8.dp)) {
-                    Text("Disconnect", color = c.fg, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                status is BleStatus.Scanning -> {
+                    TextButton(
+                        onClick        = onStop,
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Text(
+                            "Stop",
+                            color      = MaterialTheme.colorScheme.error,
+                            fontWeight = FontWeight.Bold,
+                            fontSize   = 12.sp
+                        )
+                    }
+                }
+                status is BleStatus.Connected -> {
+                    TextButton(
+                        onClick        = onDisconnect,
+                        contentPadding = PaddingValues(horizontal = 8.dp)
+                    ) {
+                        Text(
+                            "Disconnect",
+                            color      = c.fg,
+                            fontWeight = FontWeight.Bold,
+                            fontSize   = 12.sp
+                        )
+                    }
                 }
             }
         }
@@ -255,22 +376,29 @@ fun BleBanner(
 fun AddWasteDialog(onDismiss: () -> Unit, onAdd: (Double) -> Unit) {
     var weightStr by remember { mutableStateOf("") }
     AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = MaterialTheme.colorScheme.surface,
+        onDismissRequest  = onDismiss,
+        containerColor    = MaterialTheme.colorScheme.surface,
         titleContentColor = MaterialTheme.colorScheme.onSurface,
-        textContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
-        title = { Text("Record New Waste") },
-        text = {
+        textContentColor  = MaterialTheme.colorScheme.onSurfaceVariant,
+        title             = { Text("Record New Waste") },
+        text              = {
             Column {
                 Text("Enter the weight of organic waste added (kg)")
                 Spacer(Modifier.height(8.dp))
-                InputField("Weight", Icons.Default.Scale, isNumeric = true, value = weightStr) { weightStr = it }
+                InputField(
+                    "Weight",
+                    Icons.Default.Scale,
+                    isNumeric = true,
+                    value     = weightStr
+                ) { weightStr = it }
             }
         },
         confirmButton = {
             Button(
                 onClick = { weightStr.toDoubleOrNull()?.let { onAdd(it) } },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors  = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                )
             ) { Text("Add", color = MaterialTheme.colorScheme.onPrimary) }
         },
         dismissButton = {

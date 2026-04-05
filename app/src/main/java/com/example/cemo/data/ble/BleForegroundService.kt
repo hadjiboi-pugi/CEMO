@@ -27,8 +27,6 @@ class BleForegroundService : Service() {
 
     // ───────────────────────── NOTIFICATION STATE ─────────────────────────
 
-    // Title = connection status   (e.g. "Connected to CEMO-ESP32")
-    // Body  = live sensor values  (e.g. "⚖ 3.50 kg  🌡 28.3°C  💧 61.0%  ⚡ 3.72V  0.450A")
     private var notificationTitle: String = "CEMO – ESP32"
     private var notificationBody:  String = "BLE service running…"
 
@@ -37,6 +35,7 @@ class BleForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         bleManager = BleManager(applicationContext)
+        bleManager.registerBluetoothReceiver()  // ← start watching BT state
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, buildNotification())
     }
@@ -51,19 +50,18 @@ class BleForegroundService : Service() {
     }
 
     override fun onDestroy() {
+        bleManager.unregisterBluetoothReceiver()  // ← stop watching BT state
         bleManager.disconnect()
         super.onDestroy()
     }
 
     // ───────────────────────── NOTIFICATION API ─────────────────────────
 
-    /** Called by ViewModel when BLE status changes. Updates the title line. */
     fun updateStatus(status: String) {
         notificationTitle = status
         refresh()
     }
 
-    /** Called by ViewModel on every new sensor packet. Updates the body line. */
     fun updateSensorValues(body: String) {
         notificationBody = body
         refresh()
@@ -81,7 +79,7 @@ class BleForegroundService : Service() {
             val channel = NotificationChannel(
                 CHANNEL_ID,
                 "BLE Connection",
-                NotificationManager.IMPORTANCE_LOW   // silent – no sound / vibration
+                NotificationManager.IMPORTANCE_LOW
             ).apply {
                 description = "Live sensor readings from the ESP32"
             }
@@ -104,10 +102,10 @@ class BleForegroundService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.app_icon_round)
-            .setContentTitle(notificationTitle)          // status line
-            .setContentText(notificationBody)            // sensor line (collapsed)
-            .setStyle(                                   // sensor line (expanded)
+            .setSmallIcon(R.drawable.icon)
+            .setContentTitle(notificationTitle)
+            .setContentText(notificationBody)
+            .setStyle(
                 NotificationCompat.BigTextStyle()
                     .bigText(notificationBody)
             )

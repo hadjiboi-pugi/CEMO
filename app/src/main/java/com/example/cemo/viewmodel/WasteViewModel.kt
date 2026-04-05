@@ -75,6 +75,7 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
                     is BleStatus.Connecting   -> "Connecting…"
                     is BleStatus.Scanning     -> "Scanning for devices…"
                     is BleStatus.Disconnected -> "CEMO – Disconnected"
+                    is BleStatus.BluetoothOff -> "CEMO – Bluetooth Off"  // ← ADDED
                     is BleStatus.Error        -> "Error: ${status.message}"
                 }
                 bleService?.updateStatus(title)
@@ -125,7 +126,6 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
                     "⚖ ${"%.2f".format(data.weightKg)} kg  " +
                             "🌡 ${"%.1f".format(data.temperatureC)}°C  " +
                             "💧 ${"%.1f".format(data.humidityPct)}%  "
-
                 )
             }
         }
@@ -180,6 +180,5 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
         super.onCleared()
         sensorJob?.cancel()
         getApplication<Application>().unbindService(serviceConnection)
-        // Service stays running — call disconnectBle() to fully stop it
     }
 }

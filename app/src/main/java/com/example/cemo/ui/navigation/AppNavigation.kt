@@ -9,7 +9,13 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -21,7 +27,20 @@ import androidx.navigation.compose.rememberNavController
 import com.example.cemo.ui.components.AppLogo
 import com.example.cemo.ui.screens.*
 import com.example.cemo.viewmodel.WasteViewModel
-import kotlinx.coroutines.launch
+
+// ── Sealed class for nav items ────────────────────────────────────────────────
+sealed class NavItem(
+    val route: String,
+    val label: String,
+    val icon: ImageVector
+) {
+    object Dashboard : NavItem("Dashboard", "Home", Icons.Default.Dashboard)
+    object Reports   : NavItem("Reports",   "Reports",   Icons.Default.BarChart)
+    // Updated to the standard IoT/Sensors icon
+    object Bluetooth : NavItem("Bluetooth", "Connect",   Icons.Default.Sensors)
+    object Profile   : NavItem("Profile",   "Profile",   Icons.Default.Person)
+    object Logout    : NavItem("Logout",    "Logout",    Icons.AutoMirrored.Filled.Logout)
+}
 
 @Composable
 fun AppNavigation() {
@@ -36,88 +55,154 @@ fun AppNavigation() {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainContainer(navController: NavController) {
-    // ── Single shared ViewModel for ALL screens ───────────────────────────────
     val sharedViewModel: WasteViewModel = viewModel()
-
-    val drawerState   = rememberDrawerState(initialValue = DrawerValue.Closed)
-    val scope         = rememberCoroutineScope()
     var currentScreen by remember { mutableStateOf("Dashboard") }
+    var isScrolled by remember { mutableStateOf(false) }
 
-    ModalNavigationDrawer(
-        drawerState = drawerState,
-        drawerContent = {
-            ModalDrawerSheet(
-                modifier             = Modifier.fillMaxWidth(0.75f),
-                drawerContainerColor = MaterialTheme.colorScheme.primary
-            ) {
-                Column(
-                    modifier = Modifier
-                        .padding(24.dp)
-                        .fillMaxHeight()
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        // Assuming AppLogo also accepts sizing, keeping it at 32.dp or larger
-                        AppLogo(40.dp)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            "CEMO",
-                            color      = MaterialTheme.colorScheme.onPrimary,
-                            fontWeight = FontWeight.Bold,
-                            fontSize   = 22.sp // Slightly larger for app title hierarchy
-                        )
-                    }
-                    Spacer(modifier = Modifier.height(32.dp))
-
-                    DrawerItem("Dashboard", Icons.Default.Dashboard, currentScreen == "Dashboard") {
-                        currentScreen = "Dashboard"; scope.launch { drawerState.close() }
-                    }
-                    DrawerItem("Bluetooth", Icons.Default.Bluetooth, currentScreen == "Bluetooth") {
-                        currentScreen = "Bluetooth"; scope.launch { drawerState.close() }
-                    }
-                    DrawerItem("Reports", Icons.Default.BarChart, currentScreen == "Reports") {
-                        currentScreen = "Reports"; scope.launch { drawerState.close() }
-                    }
-                    DrawerItem("Profile", Icons.Default.PersonOutline, currentScreen == "Profile") {
-                        currentScreen = "Profile"; scope.launch { drawerState.close() }
-                    }
-
-                    Spacer(modifier = Modifier.weight(1f))
-                    DrawerItem("Logout", Icons.AutoMirrored.Filled.Logout, false) {
-                        navController.navigate("login")
-                    }
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPostScroll(
+                consumed: Offset,
+                available: Offset,
+                source: NestedScrollSource
+            ): Offset {
+                when {
+                    consumed.y < 0 -> isScrolled = true  // actually scrolled down
+                    consumed.y > 0 -> isScrolled = false // scrolled back to top
                 }
+                return Offset.Zero
             }
         }
+    }
+
+    val navItems = listOf(
+        NavItem.Dashboard,
+        NavItem.Reports,
+        NavItem.Bluetooth,
+        NavItem.Profile,
+        NavItem.Logout
+    )
+
+    Scaffold(
+        topBar = {
+            Surface(
+                color           = MaterialTheme.colorScheme.background,
+                tonalElevation  = 0.dp,
+                shadowElevation = if (isScrolled) 8.dp else 0.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .height(64.dp)
+                        .padding(horizontal = 20.dp),
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Start
+                ) {
+                    AppLogo(size = 36.dp)
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text       = if (currentScreen == "Bluetooth") "Connect" else currentScreen,
+                        fontWeight = FontWeight.Bold,
+                        fontSize   = 22.sp,
+                        color      = MaterialTheme.colorScheme.onBackground
+                    )
+                }
+            }
+        },
+        bottomBar = {
+            FloatingBottomNavBar(
+                items        = navItems,
+                currentRoute = currentScreen,
+                onItemClick  = { item ->
+                    if (item.route == "Logout") {
+                        navController.navigate("login")
+                    } else {
+                        currentScreen = item.route
+                        isScrolled = false // reset shadow on screen switch
+                    }
+                }
+            )
+        },
+        containerColor = MaterialTheme.colorScheme.background
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = padding.calculateTopPadding()) // top only, no bottom clipping
+                .nestedScroll(nestedScrollConnection)
+        ) {
+            when (currentScreen) {
+                "Dashboard" -> DashboardScreen(viewModel = sharedViewModel)
+                "Bluetooth" -> BleDeviceScreen(viewModel = sharedViewModel)
+                "Reports"   -> ReportsScreen()
+                "Profile"   -> ProfileScreen()
+            }
+        }
+    }
+}
+
+@Composable
+fun FloatingBottomNavBar(
+    items: List<NavItem>,
+    currentRoute: String,
+    onItemClick: (NavItem) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
-        Scaffold(
-            topBar = {
-                CenterAlignedTopAppBar(
-                    title = { Text(currentScreen, fontWeight = FontWeight.Bold) },
-                    // UX FIX: Moved Hamburger menu to the leading edge (NavigationIcon)
-                    navigationIcon = {
-                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(
+                    elevation    = 16.dp,
+                    shape        = RoundedCornerShape(32.dp),
+                    ambientColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f),
+                    spotColor    = MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)
+                )
+                .clip(RoundedCornerShape(32.dp)),
+            color          = MaterialTheme.colorScheme.surface,
+            tonalElevation = 4.dp
+        ) {
+            Row(
+                modifier              = Modifier
+                    .fillMaxWidth()
+                    .height(72.dp)
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment     = Alignment.CenterVertically
+            ) {
+                items.forEach { item ->
+                    val isBluetooth = item.route == "Bluetooth"
+                    val isSelected  = currentRoute == item.route
+
+                    if (isBluetooth) {
+                        FloatingActionButton(
+                            onClick        = { onItemClick(item) },
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor   = MaterialTheme.colorScheme.onPrimary,
+                            elevation      = FloatingActionButtonDefaults.elevation(
+                                defaultElevation = 6.dp,
+                                pressedElevation = 2.dp
+                            ),
+                            shape    = RoundedCornerShape(20.dp),
+                            modifier = Modifier.size(56.dp)
+                        ) {
                             Icon(
-                                imageVector = Icons.Default.Menu,
-                                contentDescription = "Open Navigation Menu", // UX FIX: Added Accessibility
-                                modifier = Modifier.size(32.dp) // UX FIX: Increased icon size
+                                imageVector        = item.icon,
+                                contentDescription = item.label,
+                                modifier           = Modifier.size(28.dp)
                             )
                         }
-                    },
-                    colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor         = MaterialTheme.colorScheme.surface,
-                        titleContentColor      = MaterialTheme.colorScheme.onSurface,
-                        navigationIconContentColor = MaterialTheme.colorScheme.onSurface
-                    )
-                )
-            },
-            containerColor = MaterialTheme.colorScheme.background
-        ) { padding ->
-            Box(modifier = Modifier.padding(padding)) {
-                when (currentScreen) {
-                    "Dashboard" -> DashboardScreen(viewModel = sharedViewModel)
-                    "Bluetooth" -> BleDeviceScreen(viewModel = sharedViewModel)
-                    "Reports"   -> ReportsScreen()
-                    "Profile"   -> ProfileScreen()
+                    } else {
+                        NavBarItem(
+                            item       = item,
+                            isSelected = isSelected,
+                            onClick    = { onItemClick(item) }
+                        )
+                    }
                 }
             }
         }
@@ -125,34 +210,35 @@ fun MainContainer(navController: NavController) {
 }
 
 @Composable
-fun DrawerItem(
-    label: String,
-    icon: ImageVector,
+fun NavBarItem(
+    item: NavItem,
     isSelected: Boolean,
     onClick: () -> Unit
 ) {
-    Surface(
+    val selectedColor   = MaterialTheme.colorScheme.primary
+    val unselectedColor = MaterialTheme.colorScheme.onSurfaceVariant
+
+    IconButton(
         onClick  = onClick,
-        color    = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.primary,
-        shape    = RoundedCornerShape(12.dp),
-        modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp) // Good implicit touch target size maintained
+        modifier = Modifier.size(56.dp)
     ) {
-        Row(
-            modifier          = Modifier.padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
             Icon(
-                imageVector = icon,
-                contentDescription = label, // UX FIX: Added Accessibility
-                tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(28.dp) // UX FIX: Increased icon size for better visibility
+                imageVector        = item.icon,
+                contentDescription = item.label,
+                tint               = if (isSelected) selectedColor else unselectedColor,
+                modifier           = Modifier.size(if (isSelected) 26.dp else 24.dp)
             )
-            Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = label,
-                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onPrimary,
-                fontWeight = FontWeight.Bold,
-                fontSize = 16.sp // Ensured text matches the visual weight of the new icon size
+                text       = item.label,
+                fontSize   = 10.sp,
+                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                color      = if (isSelected) selectedColor else unselectedColor,
+                maxLines   = 1
             )
         }
     }

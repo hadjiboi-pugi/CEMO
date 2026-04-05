@@ -1,7 +1,9 @@
 package com.example.cemo.ui.screens
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
@@ -12,7 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.cemo.ui.components.AppLogo
 import com.example.cemo.ui.components.InputField
@@ -20,8 +21,11 @@ import com.example.cemo.ui.components.InputField
 @Composable
 fun RegisterScreen(navController: NavController) {
     var fullName by remember { mutableStateOf("") }
-    var email    by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    val scrollState = rememberScrollState()
+
+    val isFormValid = fullName.isNotBlank() && email.isNotBlank() && password.isNotBlank()
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -30,38 +34,64 @@ fun RegisterScreen(navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .imePadding()
+                .verticalScroll(scrollState)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             AppLogo()
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
             Text(
-                "Create Account",
-                fontSize = 28.sp,
+                text = "Create Account",
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
+
             Spacer(modifier = Modifier.height(32.dp))
 
             Card(
-                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(8.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
-                    InputField("Full Name",     Icons.Default.PersonOutline, value = fullName) { fullName = it }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    InputField("Email Address", Icons.Default.Email,         value = email)    { email = it }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    InputField("Password",      Icons.Default.Lock, isPassword = true, value = password) { password = it }
-                    Spacer(modifier = Modifier.height(24.dp))
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    InputField("Full Name", Icons.Default.PersonOutline, value = fullName) { fullName = it }
+                    InputField("Email Address", Icons.Default.Email, value = email) { email = it }
+                    InputField("Password", Icons.Default.Lock, isPassword = true, value = password) { password = it }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Button(
                         onClick = { navController.navigate("main") },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        enabled = isFormValid,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(12.dp)
                     ) {
-                        Text("CREATE ACCOUNT", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
+                        Text(
+                            text = "CREATE ACCOUNT",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    TextButton(
+                        onClick = { navController.navigate("login") },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Text(
+                            text = "Already have an account? Log in",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
                     }
                 }
             }

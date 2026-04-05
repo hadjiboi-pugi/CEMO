@@ -1,5 +1,9 @@
 package com.example.cemo.ui.screens
 
+import android.bluetooth.BluetoothAdapter
+import android.bluetooth.BluetoothManager
+import android.content.Context
+import android.content.Intent
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -14,6 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -21,6 +27,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cemo.data.model.BleStatus
 import com.example.cemo.data.model.ScannedDevice
+import com.example.cemo.ui.dialog.BluetoothOffDialog
+import com.example.cemo.ui.theme.PrimaryGreen
 import com.example.cemo.viewmodel.WasteViewModel
 import kotlinx.coroutines.delay
 
@@ -29,18 +37,48 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
     val bleStatus      by viewModel.bleStatus.collectAsStateWithLifecycle()
     val scannedDevices by viewModel.scannedDevices.collectAsStateWithLifecycle()
 
-    val isScanning   = bleStatus is BleStatus.Scanning
-    val isConnected  = bleStatus is BleStatus.Connected
-    val isConnecting = bleStatus is BleStatus.Connecting
+    val isScanning     = bleStatus is BleStatus.Scanning
+    val isConnected    = bleStatus is BleStatus.Connected
+    val isConnecting   = bleStatus is BleStatus.Connecting
+    val isBluetoothOff = bleStatus is BleStatus.BluetoothOff
 
-    // Cooldown guard — prevents button spam causing race conditions
+    // ── Bluetooth off alert ───────────────────────────────────────────────
+    val context = LocalContext.current
+    var showBluetoothAlert by remember { mutableStateOf(false) }
+
+    fun isBluetoothOn(): Boolean {
+        val bm = context.getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
+        return bm.adapter?.isEnabled == true
+    }
+
+    // Auto-show dialog when BT turns off while on this screen
+    LaunchedEffect(bleStatus) {
+        if (bleStatus is BleStatus.BluetoothOff) {
+            showBluetoothAlert = true
+        }
+    }
+
+    if (showBluetoothAlert) {
+        BluetoothOffDialog(
+            onDismiss = { showBluetoothAlert = false },
+            onEnable  = {
+                showBluetoothAlert = false
+                context.startActivity(Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE))
+            }
+        )
+    }
+    // ─────────────────────────────────────────────────────────────────────
+
     var buttonCooldown by remember { mutableStateOf(false) }
 
-    // Reset cooldown whenever status settles to a final state
+    // FIX: Added BleStatus.Scanning so cooldown resets once scanning starts,
+    // allowing the Stop button to be tappable.
     LaunchedEffect(bleStatus) {
         when (bleStatus) {
+            is BleStatus.Scanning,
             is BleStatus.Connected,
             is BleStatus.Disconnected,
+            is BleStatus.BluetoothOff,
             is BleStatus.Error -> { delay(300); buttonCooldown = false }
             else -> Unit
         }
@@ -73,19 +111,28 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
                     modifier = Modifier
                         .size(72.dp)
                         .background(
-                            if (isConnected) MaterialTheme.colorScheme.primaryContainer
-                            else MaterialTheme.colorScheme.surfaceVariant,
+                            when {
+                                isConnected    -> MaterialTheme.colorScheme.primaryContainer
+                                isBluetoothOff -> MaterialTheme.colorScheme.errorContainer
+                                else           -> MaterialTheme.colorScheme.surfaceVariant
+                            },
                             CircleShape
                         ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
-                        imageVector        = if (isConnected) Icons.Default.BluetoothConnected
-                        else Icons.Default.Bluetooth,
+                        imageVector = when {
+                            isConnected    -> Icons.Default.BluetoothConnected
+                            isBluetoothOff -> Icons.Default.BluetoothDisabled
+                            else           -> Icons.Default.Bluetooth
+                        },
                         contentDescription = null,
-                        tint               = if (isConnected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier           = Modifier
+                        tint = when {
+                            isConnected    -> MaterialTheme.colorScheme.primary
+                            isBluetoothOff -> MaterialTheme.colorScheme.error
+                            else           -> MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier
                             .size(36.dp)
                             .then(if (isScanning) Modifier.rotate(rotation) else Modifier)
                     )
@@ -93,19 +140,39 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
 
                 Text(
                     text = when (bleStatus) {
-                        is BleStatus.Connected  -> "Connected to ${(bleStatus as BleStatus.Connected).deviceName}"
-                        is BleStatus.Scanning   -> "Scanning for devices…"
-                        is BleStatus.Connecting -> "Connecting…"
-                        is BleStatus.Error      -> "Error: ${(bleStatus as BleStatus.Error).message}"
-                        else                    -> "Tap Scan to find your ESP32"
+                        is BleStatus.Connected    -> "Connected to ${(bleStatus as BleStatus.Connected).deviceName}"
+                        is BleStatus.Scanning     -> "Scanning for devices…"
+                        is BleStatus.Connecting   -> "Connecting…"
+                        is BleStatus.BluetoothOff -> "Bluetooth is turned off"
+                        is BleStatus.Error        -> "Error: ${(bleStatus as BleStatus.Error).message}"
+                        else                      -> "Tap Scan to find your ESP32"
                     },
                     fontWeight = FontWeight.SemiBold,
-                    color      = MaterialTheme.colorScheme.onSurface,
-                    fontSize   = 14.sp
+                    color = if (isBluetoothOff) MaterialTheme.colorScheme.error
+                    else MaterialTheme.colorScheme.onSurface,
+                    fontSize = 14.sp
                 )
 
                 // ── Action buttons ────────────────────────────────────────
                 when {
+                    isBluetoothOff -> {
+                        Button(
+                            onClick  = { showBluetoothAlert = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors   = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.error
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.BluetoothDisabled,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onError
+                            )
+                            Spacer(Modifier.width(6.dp))
+                            Text("Enable Bluetooth", color = MaterialTheme.colorScheme.onError)
+                        }
+                    }
+
                     isConnected -> {
                         OutlinedButton(
                             onClick  = {
@@ -124,22 +191,28 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
                             Spacer(Modifier.width(6.dp))
                             Text("Disconnect")
                         }
-
                     }
 
                     isConnecting -> {
+                        // REFACTOR: Now uses PrimaryGreen for the connecting state
                         Button(
-                            onClick  = {},
-                            enabled  = false,
-                            modifier = Modifier.fillMaxWidth()
+                            onClick  = {
+                                // Abort the connection attempt
+                                viewModel.disconnectBle()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors   = ButtonDefaults.buttonColors(
+                                containerColor = PrimaryGreen,
+                                contentColor   = Color.White
+                            )
                         ) {
                             CircularProgressIndicator(
                                 modifier    = Modifier.size(16.dp),
-                                color       = MaterialTheme.colorScheme.onPrimary,
+                                color       = Color.White,
                                 strokeWidth = 2.dp
                             )
                             Spacer(Modifier.width(8.dp))
-                            Text("Connecting…")
+                            Text("Connecting… (Cancel)")
                         }
                     }
 
@@ -147,9 +220,16 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
                         Button(
                             onClick  = {
                                 if (!buttonCooldown) {
-                                    buttonCooldown = true
-                                    if (isScanning) viewModel.stopScan()
-                                    else viewModel.startScan()
+                                    if (!isBluetoothOn()) {
+                                        showBluetoothAlert = true
+                                    } else {
+                                        if (isScanning) {
+                                            viewModel.stopScan()
+                                        } else {
+                                            buttonCooldown = true
+                                            viewModel.startScan()
+                                        }
+                                    }
                                 }
                             },
                             enabled  = !buttonCooldown,
@@ -172,7 +252,6 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
                                 color = MaterialTheme.colorScheme.onPrimary
                             )
                         }
-
                     }
                 }
             }
@@ -180,6 +259,8 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
 
         // ── Device list ───────────────────────────────────────────────────
         when {
+            isBluetoothOff -> { /* nothing shown below header when BT is off */ }
+
             isConnected -> {
                 val deviceName = (bleStatus as BleStatus.Connected).deviceName
                 Card(
@@ -245,19 +326,27 @@ fun BleDeviceScreen(viewModel: WasteViewModel = viewModel()) {
                         color      = MaterialTheme.colorScheme.onBackground
                     )
                 }
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(bottom = 90.dp)) {
                     items(scannedDevices, key = { it.address }) { device ->
                         DeviceCard(
                             device       = device,
-                            isCemo       = device.name == "CEMO-ESP32",
+                            // Since your BleManager now filters strictly by UUID,
+                            // any device in this list is your ESP32 node.
+                            isCemo       = true,
                             isConnecting = isConnecting || buttonCooldown,
                             onConnect    = {
                                 if (!buttonCooldown && !isConnecting) {
-                                    buttonCooldown = true
-                                    viewModel.connectToDevice(device.address)
+                                    if (!isBluetoothOn()) {
+                                        showBluetoothAlert = true
+                                    } else {
+                                        buttonCooldown = true
+                                        viewModel.connectToDevice(device.address)
+                                    }
                                 }
                             }
                         )
+
                     }
                 }
             }
@@ -324,9 +413,10 @@ private fun DeviceCard(
                 onClick        = onConnect,
                 enabled        = !isConnecting,
                 colors         = ButtonDefaults.buttonColors(
-                    containerColor = if (isCemo) MaterialTheme.colorScheme.primary
+                    // REFACTOR: Changed standard primary to PrimaryGreen for the Connect button
+                    containerColor = if (isCemo) PrimaryGreen
                     else MaterialTheme.colorScheme.surfaceVariant,
-                    contentColor   = if (isCemo) MaterialTheme.colorScheme.onPrimary
+                    contentColor   = if (isCemo) Color.White
                     else MaterialTheme.colorScheme.onSurfaceVariant
                 ),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)

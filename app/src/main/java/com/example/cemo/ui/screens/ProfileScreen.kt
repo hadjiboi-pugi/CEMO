@@ -2,7 +2,9 @@ package com.example.cemo.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Email
@@ -11,7 +13,6 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.cemo.ui.components.InputField
@@ -20,11 +21,13 @@ import com.example.cemo.ui.components.InputField
 fun ProfileScreen() {
     var fullName by remember { mutableStateOf("") }
     var email    by remember { mutableStateOf("") }
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(24.dp),
+            .verticalScroll(scrollState)
+            .padding(start = 24.dp, end = 24.dp, top = 24.dp, bottom = 100.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(contentAlignment = Alignment.BottomEnd) {

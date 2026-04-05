@@ -48,6 +48,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
+    implementation("androidx.core:core-splashscreen:1.0.1")
     
     // Retrofit for ESP32 Communication
     implementation(libs.retrofit)

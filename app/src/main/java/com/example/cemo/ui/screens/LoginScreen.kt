@@ -1,8 +1,9 @@
 package com.example.cemo.ui.screens
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.PersonOutline
@@ -12,7 +13,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
 import com.example.cemo.ui.components.AppLogo
 import com.example.cemo.ui.components.InputField
@@ -21,6 +21,9 @@ import com.example.cemo.ui.components.InputField
 fun LoginScreen(navController: NavController) {
     var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    val scrollState = rememberScrollState()
+
+    val isFormValid = username.isNotBlank() && password.isNotBlank()
 
     Surface(
         modifier = Modifier.fillMaxSize(),
@@ -29,51 +32,69 @@ fun LoginScreen(navController: NavController) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .imePadding()
+                .verticalScroll(scrollState)
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center
         ) {
             AppLogo()
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(24.dp))
+
             Text(
-                "CEMO Monitor",
-                fontSize = 28.sp,
+                text = "CEMO Monitor",
+                style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                "Smart Waste Analytics",
-                fontSize = 14.sp,
+                text = "Smart Waste Analytics",
+                style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
+
             Spacer(modifier = Modifier.height(32.dp))
 
             Card(
-                shape = RoundedCornerShape(16.dp),
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                elevation = CardDefaults.cardElevation(8.dp)
+                elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
             ) {
-                Column(modifier = Modifier.padding(24.dp)) {
+                Column(
+                    modifier = Modifier.padding(24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
                     InputField("Username", Icons.Default.PersonOutline, value = username) { username = it }
-                    Spacer(modifier = Modifier.height(16.dp))
                     InputField("Password", Icons.Default.Lock, isPassword = true, value = password) { password = it }
-                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Button(
                         onClick = { navController.navigate("main") },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Text("LOGIN", fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onPrimary)
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text(
-                        "Register Account",
+                        enabled = isFormValid,
                         modifier = Modifier
-                            .clickable { navController.navigate("register") }
-                            .align(Alignment.CenterHorizontally),
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold
-                    )
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Text(
+                            text = "LOGIN",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    TextButton(
+                        onClick = { navController.navigate("register") },
+                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                    ) {
+                        Text(
+                            text = "Don't have an account? Register",
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
                 }
             }
         }

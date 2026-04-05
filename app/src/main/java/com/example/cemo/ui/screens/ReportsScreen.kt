@@ -1,9 +1,12 @@
+// ui/screens/ReportsScreen.kt  — unchanged except the import/signature
 package com.example.cemo.ui.screens
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -21,26 +24,32 @@ import com.example.cemo.ui.theme.PrimaryGreen
 import com.example.cemo.viewmodel.WasteViewModel
 
 @Composable
-fun ReportsScreen(viewModel: WasteViewModel = viewModel()) {
-    val state by viewModel.uiState.collectAsStateWithLifecycle()
+fun ReportsScreen(wasteViewModel: WasteViewModel = viewModel()) {
+    val state       by wasteViewModel.uiState.collectAsStateWithLifecycle()
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .verticalScroll(scrollState)
+            .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 100.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         SectionTitle("Waste Generation Trend")
 
         Card(
-            modifier = Modifier.fillMaxWidth().height(200.dp),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(16.dp),
-                verticalAlignment = Alignment.Bottom,
+                verticalAlignment     = Alignment.Bottom,
                 horizontalArrangement = Arrangement.SpaceEvenly
             ) {
                 val values = if (state.history.isEmpty()) {
@@ -69,10 +78,12 @@ fun ReportsScreen(viewModel: WasteViewModel = viewModel()) {
 
         Card(
             modifier = Modifier.fillMaxWidth(),
-            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            colors   = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            )
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
+                modifier            = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 ImpactMetricRow(
@@ -87,7 +98,8 @@ fun ReportsScreen(viewModel: WasteViewModel = viewModel()) {
                 )
                 ImpactMetricRow(
                     label = "Compost Potential",
-                    value = "${String.format("%.2f", state.history.sumOf { it.weightAdded } * 0.45)} kg",
+                    value = "${String.format("%.2f",
+                        state.history.sumOf { it.weightAdded } * 0.45)} kg",
                     color = PrimaryGreen
                 )
             }
@@ -98,14 +110,22 @@ fun ReportsScreen(viewModel: WasteViewModel = viewModel()) {
 @Composable
 private fun ImpactMetricRow(label: String, value: String, color: Color) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier              = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment     = Alignment.CenterVertically
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(8.dp).background(color, CircleShape))
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(color, CircleShape)
+            )
             Spacer(Modifier.width(8.dp))
-            Text(label, fontWeight = FontWeight.Medium, color = MaterialTheme.colorScheme.onSurface)
+            Text(
+                label,
+                fontWeight = FontWeight.Medium,
+                color      = MaterialTheme.colorScheme.onSurface
+            )
         }
         Text(value, fontWeight = FontWeight.Bold, color = color)
     }
