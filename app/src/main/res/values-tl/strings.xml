@@ -1,0 +1,97 @@
+<resources>
+    <string name="app_name">CEMO</string>
+    <string name="default_web_client_id">667171201257-34978n24vmicsi63kibshrioo6ffmmca.apps.googleusercontent.com</string>
+    
+    <!-- Dashboard -->
+    <string name="current_load">KASALUKUYANG LOAD</string>
+    <string name="log_waste">I-log ang Basura</string>
+    <string name="empty_bin">I-empty ang Bin</string>
+    <string name="live_metrics">Live na Metrics</string>
+    <string name="history">Kasaysayan</string>
+    <string name="temperature">Temperatura</string>
+    <string name="humidity">Katashan ng Halumigmig</string>
+    <string name="capacity">Kapasidad</string>
+    <string name="recent_activity">Kamakailang Aktibidad</string>
+    <string name="full_status">PUNO</string>
+    <string name="added_waste_label">Nadagdag %1$.2fkg na basura</string>
+    
+    <!-- BLE Status -->
+    <string name="ble_off">Naka-off ang Bluetooth</string>
+    <string name="ble_not_connected">Hindi nakakonekta ang ESP32</string>
+    <string name="ble_scanning">Naghahanap para sa ESP32…</string>
+    <string name="ble_connecting">Kumokonekta…</string>
+    <string name="ble_connected">Nakakonekta: %1$s</string>
+    <string name="ble_error">Error sa BLE: %1$s</string>
+    <string name="enable">I-enable</string>
+    <string name="connect">I-connect</string>
+    <string name="stop">Itigil</string>
+    <string name="disconnect">I-disconnect</string>
+
+    <!-- Dialogs -->
+    <string name="record_new_waste">I-record ang Bagong Basura</string>
+    <string name="confirm_details">I-kumpirma ang detalye at pumili ng kategorya.</string>
+    <string name="enter_details">I-pasok ang detalye at pumili ng kategorya.</string>
+    <string name="weight_kg">Bigat (kg)</string>
+    <string name="category">Kategorya</string>
+    <string name="currently_sensing">Kasalukuyang nararamdaman: %1$.2fkg</string>
+    <string name="add">Idagdag</string>
+    <string name="cancel">Kanselahin</string>
+    
+    <!-- Categories -->
+    <string name="mixed">Halo-halo</string>
+    <string name="vegetables">Gulay</string>
+    <string name="rice">Kanin</string>
+    <string name="meat">Karne</string>
+    <string name="fruits">Prutas</string>
+    <string name="others">Iba pa</string>
+
+    <!-- Reports -->
+    <string name="analytics">Analitika</string>
+    <string name="analytics_desc">Mga insight sa basura at epekto sa kapaligiran</string>
+    <string name="smart_insights">MATALINONG INSIGHTS</string>
+    <string name="visual_analytics">Visual na Analitika</string>
+    <string name="audit_trail">Audit Trail</string>
+    <string name="total_waste">KABUUANG BASURA</string>
+    <string name="avg_temp">AVG NA TEMP</string>
+    <string name="entries_logged">MGA NA-LOG NA ENTRY</string>
+    <string name="est_loss">EST. NA LUGI</string>
+    <string name="verified">VERIFIED</string>
+    <string name="no_reports">Wala pang available na ulat</string>
+    <string name="refresh">I-refresh</string>
+    
+    <!-- Settings -->
+    <string name="preferences">Mga Kagustuhan</string>
+    <string name="display">Display</string>
+    <string name="language">Wika</string>
+    <string name="notifications">Mga Notification</string>
+    <string name="foreground_notification">Foreground na Notification</string>
+    <string name="theme_mode">Theme Mode</string>
+    <string name="appearance_mode">Mode ng Hitsura</string>
+    <string name="preferred_language">Mas gustong Wika</string>
+    <string name="foreground_service_desc">Panatilihing tumatakbo ang app sa background para sa live na update ng sensor.</string>
+
+    <!-- Auth -->
+    <string name="login">Mag-login</string>
+    <string name="sign_up">Mag-sign Up</string>
+    <string name="email_address">Email Address</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Kumpirmahin ang Password</string>
+    <string name="remember_me">Tandaan ako</string>
+    <string name="forgot_password">Nakalimutan ang Password?</string>
+    <string name="sign_in_with_email">Mag-sign in gamit ang Email</string>
+    <string name="create_account">Gumawa ng Account</string>
+    <string name="continue_with_google">Magpatuloy gamit ang Google</string>
+
+    <!-- Profile -->
+    <string name="profile">Profile</string>
+    <string name="update_profile">I-update ang Profile</string>
+    <string name="sign_out">Mag-sign Out</string>
+    <string name="first_name">Pangalan</string>
+    <string name="last_name">Apelyido</string>
+    <string name="display_name">Pangalan sa Display</string>
+
+    <!-- Bottom navigation -->
+    <string name="home">Home</string>
+    <string name="reports">Ulat</string>
+    <string name="settings">Setting</string>
+</resources>

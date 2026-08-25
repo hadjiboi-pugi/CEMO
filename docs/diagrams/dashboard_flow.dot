@@ -1,0 +1,64 @@
+digraph DashboardFlow {
+    graph [splines=ortho, nodesep=1.0, ranksep=0.8, forcelabels=true, bgcolor="transparent"]
+    fontname="Times New Roman"
+    node [fontname="Times New Roman", shape=rectangle, style=filled, fillcolor="white", color=black, penwidth=1.5]
+    edge [fontname="Times New Roman", color=black, penwidth=1.0]
+
+    rankdir=TB;
+
+    Start [shape=oval, label="Start"]
+    Init [label="Initialize DashboardScreen"]
+    ObsState [label="Observe uiState & bleStatus"]
+    
+    DisplayUI [label="Display Dashboard UI"]
+    
+    DecisionRefresh [shape=diamond, label="Pull to refresh?"]
+    Refresh [label="Pull to Refresh"]
+    
+    DecisionAdd [shape=diamond, label="Add Waste clicked?"]
+    CheckConnected [shape=diamond, label="BLE Connected?"]
+    AddWaste [label="Record Waste Entry"]
+    
+    DecisionDelete [shape=diamond, label="Delete Entry clicked?"]
+    ConfirmDelete [shape=diamond, label="Confirm deletion?"]
+    DeleteEntry [label="Delete Waste Entry"]
+    
+    DecisionHistory [shape=diamond, label="See All clicked?"]
+    
+    DecisionExit [shape=diamond, label="Exit clicked?"]
+    ExitDashboard [label="Exit / Logout"]
+    
+    UpdateState [label="Update uiState"]
+    End [shape=oval, label="End"]
+
+    Start -> Init
+    Init -> ObsState
+    ObsState -> DisplayUI
+    
+    DisplayUI -> DecisionRefresh
+    
+    DecisionRefresh -> Refresh [xlabel="Yes"]
+    Refresh -> UpdateState
+    DecisionRefresh -> DecisionAdd [xlabel="No"]
+    
+    DecisionAdd -> CheckConnected [xlabel="Yes"]
+    CheckConnected -> AddWaste [xlabel="Yes"]
+    AddWaste -> UpdateState
+    CheckConnected -> DisplayUI [xlabel="No"]
+    DecisionAdd -> DecisionDelete [xlabel="No"]
+    
+    DecisionDelete -> ConfirmDelete [xlabel="Yes"]
+    ConfirmDelete -> DeleteEntry [xlabel="Yes"]
+    DeleteEntry -> UpdateState
+    ConfirmDelete -> DisplayUI [xlabel="No"]
+    DecisionDelete -> DecisionHistory [xlabel="No"]
+    
+    DecisionHistory -> End [xlabel="Yes"]
+    DecisionHistory -> DecisionExit [xlabel="No"]
+    
+    DecisionExit -> ExitDashboard [xlabel="Yes"]
+    ExitDashboard -> End
+    DecisionExit -> DisplayUI [xlabel="No"]
+    
+    UpdateState -> ObsState
+}

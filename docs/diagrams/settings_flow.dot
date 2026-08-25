@@ -1,0 +1,51 @@
+digraph SettingsFlow {
+    graph [splines=ortho, nodesep=1.0, ranksep=0.8, forcelabels=true, bgcolor="transparent"]
+    fontname="Times New Roman"
+    node [fontname="Times New Roman", shape=rectangle, style=filled, fillcolor="white", color=black, penwidth=1.5]
+    edge [fontname="Times New Roman", color=black, penwidth=1.0]
+
+    rankdir=TB;
+
+    Start [shape=oval, label="Start"]
+    Init [label="Initialize SettingsScreen"]
+    ObsAppState [label="Observe AppState"]
+    
+    DisplayUI [label="Display Settings UI"]
+    
+    DecisionTheme [shape=diamond, label="Theme changed?"]
+    ChangeTheme [label="Update Theme"]
+    
+    DecisionLang [shape=diamond, label="Language changed?"]
+    ChangeLang [label="Update Language"]
+    
+    DecisionNotif [shape=diamond, label="Notif toggled?"]
+    ToggleNotif [label="Toggle Notifications"]
+    
+    UpdateAppState [label="Update SharedPreferences"]
+    
+    DecisionExit [shape=diamond, label="Exit clicked?"]
+    End [shape=oval, label="End"]
+
+    Start -> Init
+    Init -> ObsAppState
+    ObsAppState -> DisplayUI
+    
+    DisplayUI -> DecisionTheme
+    
+    DecisionTheme -> ChangeTheme [xlabel="Yes"]
+    ChangeTheme -> UpdateAppState
+    DecisionTheme -> DecisionLang [xlabel="No"]
+    
+    DecisionLang -> ChangeLang [xlabel="Yes"]
+    ChangeLang -> UpdateAppState
+    DecisionLang -> DecisionNotif [xlabel="No"]
+    
+    DecisionNotif -> ToggleNotif [xlabel="Yes"]
+    ToggleNotif -> UpdateAppState
+    DecisionNotif -> DecisionExit [xlabel="No"]
+    
+    UpdateAppState -> ObsAppState
+    
+    DecisionExit -> End [xlabel="Yes"]
+    DecisionExit -> DisplayUI [xlabel="No"]
+}

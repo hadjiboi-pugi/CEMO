@@ -1,0 +1,60 @@
+digraph AuthFlow {
+    graph [splines=ortho, nodesep=1.0, ranksep=0.8, forcelabels=true, bgcolor="transparent"]
+    fontname="Times New Roman"
+    node [fontname="Times New Roman", shape=rectangle, style=filled, fillcolor="white", color=black, penwidth=1.5]
+    edge [fontname="Times New Roman", color=black, penwidth=1.0]
+
+    rankdir=TB;
+
+    Start [shape=oval, label="Start"]
+    Init [label="Initialize AuthScreen"]
+    ObsState [label="Observe AuthState"]
+    
+    CheckSuccess [shape=diamond, label="isSignInSuccessful?"]
+    NavigateMain [label="Navigate to Main Screen"]
+    End [shape=oval, label="End"]
+    
+    DisplayUI [label="Display Auth UI"]
+    
+    DecisionToggle [shape=diamond, label="Toggle Tab clicked?"]
+    ToggleMode [label="Toggle Mode"]
+    
+    DecisionGoogle [shape=diamond, label="Google Button clicked?"]
+    GoogleAuth [label="Call Google Auth API"]
+    
+    InputData [label="Input Credentials"]
+    CheckForm [shape=diamond, label="isFormValid?"]
+    EmailAuth [label="Call Email Auth API"]
+    
+    AuthResult [label="Update AuthState"]
+    CheckError [shape=diamond, label="Error?"]
+    ShowError [label="Show Error Toast"]
+
+    Start -> Init
+    Init -> ObsState
+    ObsState -> CheckSuccess
+    
+    CheckSuccess -> NavigateMain [xlabel="Yes"]
+    NavigateMain -> End
+    CheckSuccess -> DisplayUI [xlabel="No"]
+    
+    DisplayUI -> DecisionToggle
+    
+    DecisionToggle -> ToggleMode [xlabel="Yes"]
+    ToggleMode -> DisplayUI
+    DecisionToggle -> DecisionGoogle [xlabel="No"]
+    
+    DecisionGoogle -> GoogleAuth [xlabel="Yes"]
+    GoogleAuth -> AuthResult
+    DecisionGoogle -> InputData [xlabel="No"]
+    
+    InputData -> CheckForm
+    CheckForm -> EmailAuth [xlabel="Yes"]
+    EmailAuth -> AuthResult
+    CheckForm -> DisplayUI [xlabel="No"]
+    
+    AuthResult -> CheckError
+    CheckError -> ShowError [xlabel="Yes"]
+    ShowError -> DisplayUI
+    CheckError -> ObsState [xlabel="No"]
+}

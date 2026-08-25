@@ -1,0 +1,61 @@
+digraph WasteHistoryFlow {
+    graph [splines=ortho, nodesep=1.0, ranksep=0.8, forcelabels=true, bgcolor="transparent"]
+    fontname="Times New Roman"
+    node [fontname="Times New Roman", shape=rectangle, style=filled, fillcolor="white", color=black, penwidth=1.5]
+    edge [fontname="Times New Roman", color=black, penwidth=1.0]
+
+    rankdir=TB;
+
+    Start [shape=oval, label="Start"]
+    Init [label="Initialize WasteHistoryScreen"]
+    ObsState [label="Observe uiState"]
+    
+    ApplyFilters [label="Apply Filters/Sort"]
+    ApplyPagination [label="Paginate Results"]
+    
+    DisplayUI [label="Display History UI"]
+    
+    DecisionSort [shape=diamond, label="Sort clicked?"]
+    DecisionDate [shape=diamond, label="Date clicked?"]
+    DecisionPage [shape=diamond, label="Page changed?"]
+    
+    DecisionDelete [shape=diamond, label="Delete clicked?"]
+    ConfirmDelete [shape=diamond, label="Confirm deletion?"]
+    DeleteEntry [label="Delete Waste Entry"]
+    
+    DecisionRefresh [shape=diamond, label="Refresh clicked?"]
+    Refresh [label="Pull to Refresh"]
+    
+    DecisionBack [shape=diamond, label="Back clicked?"]
+    End [shape=oval, label="End"]
+
+    Start -> Init
+    Init -> ObsState
+    ObsState -> ApplyFilters
+    ApplyFilters -> ApplyPagination
+    ApplyPagination -> DisplayUI
+    
+    DisplayUI -> DecisionSort
+    
+    DecisionSort -> ApplyFilters [xlabel="Yes"]
+    DecisionSort -> DecisionDate [xlabel="No"]
+    
+    DecisionDate -> ApplyFilters [xlabel="Yes"]
+    DecisionDate -> DecisionPage [xlabel="No"]
+    
+    DecisionPage -> ApplyPagination [xlabel="Yes"]
+    DecisionPage -> DecisionDelete [xlabel="No"]
+    
+    DecisionDelete -> ConfirmDelete [xlabel="Yes"]
+    ConfirmDelete -> DeleteEntry [xlabel="Yes"]
+    DeleteEntry -> ObsState
+    ConfirmDelete -> DisplayUI [xlabel="No"]
+    DecisionDelete -> DecisionRefresh [xlabel="No"]
+    
+    DecisionRefresh -> Refresh [xlabel="Yes"]
+    Refresh -> ObsState
+    DecisionRefresh -> DecisionBack [xlabel="No"]
+    
+    DecisionBack -> End [xlabel="Yes"]
+    DecisionBack -> DisplayUI [xlabel="No"]
+}

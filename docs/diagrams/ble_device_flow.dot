@@ -1,0 +1,74 @@
+digraph BleDeviceFlow {
+    graph [splines=ortho, nodesep=1.0, ranksep=0.8, forcelabels=true, bgcolor="transparent"]
+    fontname="Times New Roman"
+    node [fontname="Times New Roman", shape=rectangle, style=filled, fillcolor="white", color=black, penwidth=1.5]
+    edge [fontname="Times New Roman", color=black, penwidth=1.0]
+
+    rankdir=TB;
+
+    Start [shape=oval, label="Start"]
+    Init [label="Initialize BleDeviceScreen"]
+    ObsBleStatus [label="Observe bleStatus & scannedDevices"]
+    
+    DisplayUI [label="Display BLE UI"]
+    
+    DecisionStartScan [shape=diamond, label="Start Scan clicked?"]
+    CheckPermsScan [shape=diamond, label="Has Permissions?"]
+    RequestPerms [label="Request Permissions"]
+    CheckBT [shape=diamond, label="Bluetooth On?"]
+    ShowBTDialog [label="Show Bluetooth Off Dialog"]
+    StartScan [label="Start Scanning"]
+    
+    DecisionStopScan [shape=diamond, label="Stop Scan clicked?"]
+    StopScan [label="Stop Scanning"]
+    
+    DecisionConnect [shape=diamond, label="Device selected?"]
+    CheckPermsConnect [shape=diamond, label="Has Permissions?"]
+    ConnectDevice [label="Connect to Device"]
+    
+    DecisionDisconnect [shape=diamond, label="Disconnect clicked?"]
+    DisconnectDevice [label="Disconnect Device"]
+    
+    BleUpdate [label="Update bleStatus"]
+    
+    DecisionBack [shape=diamond, label="Back clicked?"]
+    ExitScreen [label="Navigate Back"]
+    End [shape=oval, label="End"]
+
+    Start -> Init
+    Init -> ObsBleStatus
+    ObsBleStatus -> DisplayUI
+    
+    DisplayUI -> DecisionStartScan
+    
+    DecisionStartScan -> CheckPermsScan [xlabel="Yes"]
+    CheckPermsScan -> RequestPerms [xlabel="No"]
+    RequestPerms -> ObsBleStatus
+    CheckPermsScan -> CheckBT [xlabel="Yes"]
+    CheckBT -> ShowBTDialog [xlabel="No"]
+    CheckBT -> StartScan [xlabel="Yes"]
+    ShowBTDialog -> DisplayUI
+    StartScan -> BleUpdate
+    
+    DecisionStartScan -> DecisionStopScan [xlabel="No"]
+    
+    DecisionStopScan -> StopScan [xlabel="Yes"]
+    StopScan -> BleUpdate
+    DecisionStopScan -> DecisionConnect [xlabel="No"]
+    
+    DecisionConnect -> CheckPermsConnect [xlabel="Yes"]
+    CheckPermsConnect -> RequestPerms [xlabel="No"]
+    CheckPermsConnect -> ConnectDevice [xlabel="Yes"]
+    ConnectDevice -> BleUpdate
+    DecisionConnect -> DecisionDisconnect [xlabel="No"]
+    
+    DecisionDisconnect -> DisconnectDevice [xlabel="Yes"]
+    DisconnectDevice -> BleUpdate
+    DecisionDisconnect -> DecisionBack [xlabel="No"]
+    
+    BleUpdate -> ObsBleStatus
+    
+    DecisionBack -> ExitScreen [xlabel="Yes"]
+    ExitScreen -> End
+    DecisionBack -> DisplayUI [xlabel="No"]
+}

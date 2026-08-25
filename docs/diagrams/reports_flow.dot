@@ -1,0 +1,54 @@
+digraph ReportsFlow {
+    graph [splines=ortho, nodesep=1.0, ranksep=0.8, forcelabels=true, bgcolor="transparent"]
+    fontname="Times New Roman"
+    node [fontname="Times New Roman", shape=rectangle, style=filled, fillcolor="white", color=black, penwidth=1.5]
+    edge [fontname="Times New Roman", color=black, penwidth=1.0]
+
+    rankdir=TB;
+
+    Start [shape=oval, label="Start"]
+    Init [label="Initialize ReportsScreen"]
+    ObsState [label="Observe uiState"]
+    
+    CalcStats [label="Calculate Analytics"]
+    DisplayUI [label="Display Reports UI"]
+    
+    DecisionFilter [shape=diamond, label="Filter changed?"]
+    
+    DecisionExport [shape=diamond, label="Export clicked?"]
+    ExportReport [label="Export Analytics"]
+    
+    DecisionDelete [shape=diamond, label="Delete clicked?"]
+    DeleteAudit [label="Delete Audit Entry"]
+    
+    DecisionRefresh [shape=diamond, label="Refresh clicked?"]
+    Refresh [label="Pull to Refresh"]
+    
+    DecisionExit [shape=diamond, label="Exit clicked?"]
+    End [shape=oval, label="End"]
+
+    Start -> Init
+    Init -> ObsState
+    ObsState -> CalcStats
+    CalcStats -> DisplayUI
+    
+    DisplayUI -> DecisionFilter
+    
+    DecisionFilter -> CalcStats [xlabel="Yes"]
+    DecisionFilter -> DecisionExport [xlabel="No"]
+    
+    DecisionExport -> ExportReport [xlabel="Yes"]
+    ExportReport -> DisplayUI
+    DecisionExport -> DecisionDelete [xlabel="No"]
+    
+    DecisionDelete -> DeleteAudit [xlabel="Yes"]
+    DeleteAudit -> ObsState
+    DecisionDelete -> DecisionRefresh [xlabel="No"]
+    
+    DecisionRefresh -> Refresh [xlabel="Yes"]
+    Refresh -> ObsState
+    DecisionRefresh -> DecisionExit [xlabel="No"]
+    
+    DecisionExit -> End [xlabel="Yes"]
+    DecisionExit -> DisplayUI [xlabel="No"]
+}

@@ -1,0 +1,57 @@
+digraph ProfileFlow {
+    graph [splines=ortho, nodesep=1.0, ranksep=0.8, forcelabels=true, bgcolor="transparent"]
+    fontname="Times New Roman"
+    node [fontname="Times New Roman", shape=rectangle, style=filled, fillcolor="white", color=black, penwidth=1.5]
+    edge [fontname="Times New Roman", color=black, penwidth=1.0]
+
+    rankdir=TB;
+
+    Start [shape=oval, label="Start"]
+    Init [label="Initialize ProfileScreen"]
+    FetchUser [label="Fetch User Data"]
+    
+    DisplayUI [label="Display Profile UI"]
+    
+    DecisionEdit [shape=diamond, label="Edit clicked?"]
+    ShowEditUI [label="Show Edit UI"]
+    DecisionSave [shape=diamond, label="Save clicked?"]
+    SaveProfile [label="Update Profile API"]
+    
+    DecisionLogout [shape=diamond, label="Logout clicked?"]
+    ConfirmLogout [shape=diamond, label="Confirm logout?"]
+    ExecuteLogout [label="Execute Logout"]
+    
+    DecisionRefresh [shape=diamond, label="Refresh clicked?"]
+    Refresh [label="Pull to Refresh"]
+    
+    DecisionExit [shape=diamond, label="Exit clicked?"]
+    End [shape=oval, label="End"]
+
+    Start -> Init
+    Init -> FetchUser
+    FetchUser -> DisplayUI
+    
+    DisplayUI -> DecisionEdit
+    
+    DecisionEdit -> ShowEditUI [xlabel="Yes"]
+    ShowEditUI -> DecisionSave
+    DecisionSave -> SaveProfile [xlabel="Yes"]
+    SaveProfile -> FetchUser
+    DecisionSave -> DisplayUI [xlabel="No"]
+    
+    DecisionEdit -> DecisionLogout [xlabel="No"]
+    
+    DecisionLogout -> ConfirmLogout [xlabel="Yes"]
+    ConfirmLogout -> ExecuteLogout [xlabel="Yes"]
+    ExecuteLogout -> End
+    ConfirmLogout -> DisplayUI [xlabel="No"]
+    
+    DecisionLogout -> DecisionRefresh [xlabel="No"]
+    
+    DecisionRefresh -> Refresh [xlabel="Yes"]
+    Refresh -> FetchUser
+    DecisionRefresh -> DecisionExit [xlabel="No"]
+    
+    DecisionExit -> End [xlabel="Yes"]
+    DecisionExit -> DisplayUI [xlabel="No"]
+}
