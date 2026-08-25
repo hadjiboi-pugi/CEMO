@@ -2,14 +2,25 @@ package com.example.cemo.data.ble
 
 import android.app.*
 import android.content.Intent
+import android.content.pm.ServiceInfo
 import android.os.Binder
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.example.cemo.AppState
 import com.example.cemo.MainActivity
 import com.example.cemo.R
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 
 class BleForegroundService : Service() {
+
+    private val serviceJob = Job()
+    private val serviceScope = CoroutineScope(Dispatchers.Main + serviceJob)
 
     // ───────────────────────── BINDER ─────────────────────────
 
@@ -34,10 +45,43 @@ class BleForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.d("BleForegroundService", "onCreate")
         bleManager = BleManager(applicationContext)
         bleManager.registerBluetoothReceiver()  // ← start watching BT state
         createNotificationChannel()
-        startForeground(NOTIFICATION_ID, buildNotification())
+
+        // Observe the foreground notification setting
+        serviceScope.launch {
+            AppState.foregroundNotifEnabled.collectLatest { enabled ->
+                if (enabled) {
+                    startAsForeground()
+                } else {
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                }
+            }
+        }
+    }
+
+    private fun startAsForeground() {
+        val hasPermissions = AppState.hasBlePermissions(this)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                if (hasPermissions) {
+                    startForeground(
+                        NOTIFICATION_ID,
+                        buildNotification(),
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                    )
+                } else {
+                    Log.e("BleForegroundService", "Missing permissions for FGS type connectedDevice")
+                    startForeground(NOTIFICATION_ID, buildNotification())
+                }
+            } else {
+                startForeground(NOTIFICATION_ID, buildNotification())
+            }
+        } catch (e: Exception) {
+            Log.e("BleForegroundService", "Error in startAsForeground", e)
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -45,13 +89,18 @@ class BleForegroundService : Service() {
             bleManager.disconnect()
             stopForeground(STOP_FOREGROUND_REMOVE)
             stopSelf()
+            return START_NOT_STICKY
         }
-        return START_STICKY
+
+        // Return START_NOT_STICKY to prevent the system from restarting the service
+        // into a crash loop if permissions are revoked while it's running.
+        return START_NOT_STICKY
     }
 
     override fun onDestroy() {
+        serviceJob.cancel()
         bleManager.unregisterBluetoothReceiver()  // ← stop watching BT state
-        bleManager.disconnect()
+        bleManager.disconnect()  // ← cleanup includes bonding state
         super.onDestroy()
     }
 
@@ -68,8 +117,10 @@ class BleForegroundService : Service() {
     }
 
     private fun refresh() {
-        getSystemService(NotificationManager::class.java)
-            .notify(NOTIFICATION_ID, buildNotification())
+        if (AppState.foregroundNotifEnabled.value) {
+            getSystemService(NotificationManager::class.java)
+                .notify(NOTIFICATION_ID, buildNotification())
+        }
     }
 
     // ───────────────────────── NOTIFICATION BUILD ─────────────────────────
@@ -102,7 +153,7 @@ class BleForegroundService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.drawable.icon)
+            .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(notificationTitle)
             .setContentText(notificationBody)
             .setStyle(

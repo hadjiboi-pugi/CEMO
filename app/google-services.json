@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "667171201257",
+    "project_id": "cemo-b3ee6",
+    "storage_bucket": "cemo-b3ee6.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:667171201257:android:754987dc87c309bd685078",
+        "android_client_info": {
+          "package_name": "com.example.cemo"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAEXvFZ4VCNYh51VuvYlxlmmoRy8ShwmDI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

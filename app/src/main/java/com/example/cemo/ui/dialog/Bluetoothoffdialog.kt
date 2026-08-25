@@ -22,7 +22,7 @@ fun BluetoothOffDialog(onDismiss: () -> Unit, onEnable: () -> Unit) {
                 .fillMaxWidth()
                 .background(
                     color = MaterialTheme.colorScheme.surface,
-                    shape = RoundedCornerShape(28.dp)
+                    shape = MaterialTheme.shapes.extraLarge
                 )
                 .padding(24.dp)
         ) {

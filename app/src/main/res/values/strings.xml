@@ -1,3 +1,97 @@
 <resources>
     <string name="app_name">CEMO</string>
+    <string name="default_web_client_id">667171201257-34978n24vmicsi63kibshrioo6ffmmca.apps.googleusercontent.com</string>
+    
+    <!-- Dashboard -->
+    <string name="current_load">CURRENT LOAD</string>
+    <string name="log_waste">Log Waste</string>
+    <string name="empty_bin">Empty Bin</string>
+    <string name="live_metrics">Live Metrics</string>
+    <string name="history">History</string>
+    <string name="temperature">Temperature</string>
+    <string name="humidity">Humidity</string>
+    <string name="capacity">Capacity</string>
+    <string name="recent_activity">Recent Activity</string>
+    <string name="full_status">FULL</string>
+    <string name="added_waste_label">Added %1$.2fkg waste</string>
+    
+    <!-- BLE Status -->
+    <string name="ble_off">Bluetooth is off</string>
+    <string name="ble_not_connected">ESP32 not connected</string>
+    <string name="ble_scanning">Scanning for ESP32…</string>
+    <string name="ble_connecting">Connecting…</string>
+    <string name="ble_connected">Connected: %1$s</string>
+    <string name="ble_error">BLE Error: %1$s</string>
+    <string name="enable">Enable</string>
+    <string name="connect">Connect</string>
+    <string name="stop">Stop</string>
+    <string name="disconnect">Disconnect</string>
+
+    <!-- Dialogs -->
+    <string name="record_new_waste">Record New Waste</string>
+    <string name="confirm_details">Confirm details and select a category.</string>
+    <string name="enter_details">Enter details and select a category.</string>
+    <string name="weight_kg">Weight (kg)</string>
+    <string name="category">Category</string>
+    <string name="currently_sensing">Currently sensing: %1$.2fkg</string>
+    <string name="add">Add</string>
+    <string name="cancel">Cancel</string>
+    
+    <!-- Categories -->
+    <string name="mixed">Mixed</string>
+    <string name="vegetables">Vegetables</string>
+    <string name="rice">Rice</string>
+    <string name="meat">Meat</string>
+    <string name="fruits">Fruits</string>
+    <string name="others">Others</string>
+
+    <!-- Reports -->
+    <string name="analytics">Analytics</string>
+    <string name="analytics_desc">Waste insights &amp; environmental impact</string>
+    <string name="smart_insights">SMART INSIGHTS</string>
+    <string name="visual_analytics">Visual Analytics</string>
+    <string name="audit_trail">Audit Trail</string>
+    <string name="total_waste">TOTAL WASTE</string>
+    <string name="avg_temp">AVG TEMP</string>
+    <string name="entries_logged">ENTRIES LOGGED</string>
+    <string name="est_loss">EST. LOSS</string>
+    <string name="verified">VERIFIED</string>
+    <string name="no_reports">No reports available yet</string>
+    <string name="refresh">Refresh</string>
+    
+    <!-- Settings -->
+    <string name="preferences">Preferences</string>
+    <string name="display">Display</string>
+    <string name="language">Language</string>
+    <string name="notifications">Notifications</string>
+    <string name="foreground_notification">Foreground Notification</string>
+    <string name="theme_mode">Theme Mode</string>
+    <string name="appearance_mode">Appearance Mode</string>
+    <string name="preferred_language">Preferred Language</string>
+    <string name="foreground_service_desc">Keep the app running in the background for live sensor updates.</string>
+    
+    <!-- Auth -->
+    <string name="login">Login</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="email_address">Email Address</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="remember_me">Remember me</string>
+    <string name="forgot_password">Forgot Password?</string>
+    <string name="sign_in_with_email">Sign in with Email</string>
+    <string name="create_account">Create Account</string>
+    <string name="continue_with_google">Continue with Google</string>
+    
+    <!-- Profile -->
+    <string name="profile">Profile</string>
+    <string name="update_profile">Update Profile</string>
+    <string name="sign_out">Sign Out</string>
+    <string name="first_name">First Name</string>
+    <string name="last_name">Last Name</string>
+    <string name="display_name">Display Name</string>
+
+    <!-- Bottom navigation -->
+    <string name="home">Home</string>
+    <string name="reports">Reports</string>
+    <string name="settings">Settings</string>
 </resources>
