@@ -27,6 +27,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.util.Calendar
 
 class WasteViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -35,6 +38,7 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
     private val db = Firebase.firestore
     private val auth = Firebase.auth
     private val TAG = "WasteViewModel"
+    private val wasteSaveMutex = Mutex()
 
     // ── Service binding ───────────────────────────────────────────────────────
     private var bleService: BleForegroundService? = null
@@ -137,20 +141,18 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    private fun saveEntryToFirestore(entry: WasteEntry) {
+    private suspend fun saveEntryToFirestore(entry: WasteEntry) {
         val uid = auth.currentUser?.uid
         if (uid == null) return
-        viewModelScope.launch {
-            try {
-                db.collection("users")
-                    .document(uid)
-                    .collection("waste_entries")
-                    .document(entry.id)
-                    .set(entry)
-                    .await()
-            } catch (e: Exception) {
-                android.util.Log.e(TAG, "FIRESTORE SAVE ERROR: ${e.message}", e)
-            }
+        try {
+            db.collection("users")
+                .document(uid)
+                .collection("waste_entries")
+                .document(entry.id)
+                .set(entry)
+                .await()
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "FIRESTORE SAVE ERROR: ${e.message}", e)
         }
     }
 
@@ -290,7 +292,6 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun createEntry(
         weight: Double,
-
         category: String = "Others",
         timestamp: Long = System.currentTimeMillis(),
         temp: Double    = _uiState.value.temperature,
@@ -303,12 +304,88 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
         temperature = temp
     )
 
-    fun addWaste(weight: Double, category: String = "Others") {
-        val newEntry = createEntry(weight, category)
-        saveEntryToFirestore(newEntry)
-        _uiState.update { state ->
-            state.copy(history = (listOf(newEntry) + state.history).take(50))
+    fun getWasteEntriesToday(): List<WasteEntry> {
+        return _uiState.value.history
+            .filter { isToday(it.timestamp) }
+            .sortedByDescending { it.timestamp }
+    }
+
+    fun addWaste(
+        weight: Double,
+        category: String = "Others",
+        updateExisting: Boolean = true,
+        existingEntryId: String? = null
+    ) {
+        viewModelScope.launch {
+            wasteSaveMutex.withLock {
+                val existingEntry = if (updateExisting) {
+                    val localEntries = getWasteEntriesToday()
+                    val localEntry = existingEntryId?.let { id ->
+                        localEntries.firstOrNull { it.id == id }
+                    } ?: localEntries.firstOrNull()
+                    localEntry ?: findTodayEntryInFirestore(existingEntryId)
+                } else {
+                    null
+                }
+                val timestamp = System.currentTimeMillis()
+                val entry = existingEntry?.copy(
+                    weightAdded = weight,
+                    category = category,
+                    timestamp = timestamp,
+                    humidity = _uiState.value.humidity,
+                    temperature = _uiState.value.temperature
+                ) ?: createEntry(weight, category, timestamp)
+
+                saveEntryToFirestore(entry)
+                _uiState.update { state ->
+                    val withoutUpdatedEntry = state.history.filterNot { it.id == entry.id }
+                    state.copy(history = (listOf(entry) + withoutUpdatedEntry).take(50))
+                }
+            }
         }
+    }
+
+    private suspend fun findTodayEntryInFirestore(entryId: String? = null): WasteEntry? {
+        val uid = auth.currentUser?.uid ?: return null
+        val (startOfDay, startOfTomorrow) = localDayBounds()
+
+        return try {
+            db.collection("users")
+                .document(uid)
+                .collection("waste_entries")
+                .whereGreaterThanOrEqualTo("timestamp", startOfDay)
+                .whereLessThan("timestamp", startOfTomorrow)
+                .orderBy("timestamp", Query.Direction.DESCENDING)
+                .get()
+                .await()
+                .documents
+                .mapNotNull { it.toObject(WasteEntry::class.java) }
+                .firstOrNull { entryId == null || it.id == entryId }
+        } catch (e: Exception) {
+            android.util.Log.e(TAG, "FIRESTORE TODAY ENTRY LOOKUP ERROR: ${e.message}", e)
+            null
+        }
+    }
+
+    private fun isToday(timestamp: Long): Boolean {
+        val entryCalendar = Calendar.getInstance().apply { timeInMillis = timestamp }
+        val today = Calendar.getInstance()
+        return entryCalendar.get(Calendar.ERA) == today.get(Calendar.ERA) &&
+            entryCalendar.get(Calendar.YEAR) == today.get(Calendar.YEAR) &&
+            entryCalendar.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR)
+    }
+
+    private fun localDayBounds(): Pair<Long, Long> {
+        val startOfDay = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startOfTomorrow = (startOfDay.clone() as Calendar).apply {
+            add(Calendar.DAY_OF_YEAR, 1)
+        }
+        return startOfDay.timeInMillis to startOfTomorrow.timeInMillis
     }
 
     fun deleteWasteEntry(entry: WasteEntry) {

@@ -8,6 +8,9 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -36,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.cemo.data.model.BleStatus
+import com.example.cemo.data.model.WasteEntry
 import com.example.cemo.ui.dialog.BluetoothOffDialog
 import com.example.cemo.ui.components.*
 import com.example.cemo.ui.theme.AllocationRed
@@ -60,6 +64,9 @@ fun DashboardScreen(
     val bleStatus by viewModel.bleStatus.collectAsStateWithLifecycle()
     val sdf       = remember<SimpleDateFormat> { SimpleDateFormat("MMM dd, HH:mm", Locale.US) }
     var showAddDialog by remember { mutableStateOf(false) }
+    val todayWasteEntries = remember(state.history) {
+        viewModel.getWasteEntriesToday()
+    }
     val themeMode by com.example.cemo.AppState.themeMode.collectAsState()
     val isSystemDark = isSystemInDarkTheme()
     val isDark = when (themeMode) {
@@ -131,9 +138,14 @@ fun DashboardScreen(
             currentSensorWeight = state.currentWeight,
             currentHumidity = state.humidity,
             currentTemperature = state.temperature,
+            todayEntries = todayWasteEntries,
             onDismiss = { showAddDialog = false },
-            onAdd     = { weight ->
-                viewModel.addWaste(weight)
+            onUpdate  = { weight, entryId ->
+                viewModel.addWaste(weight, existingEntryId = entryId)
+                showAddDialog = false
+            },
+            onAddNew = { weight ->
+                viewModel.addWaste(weight, updateExisting = false)
                 showAddDialog = false
             }
         )
@@ -456,10 +468,17 @@ fun AddWasteDialog(
     currentSensorWeight: Double,
     currentHumidity: Double,
     currentTemperature: Double,
+    todayEntries: List<WasteEntry> = emptyList(),
     onDismiss: () -> Unit,
-    onAdd: (Double) -> Unit
+    onUpdate: (Double, String?) -> Unit,
+    onAddNew: ((Double) -> Unit)? = null
 ) {
     val canAdd = currentSensorWeight > 0.01 // Minimal threshold to prevent ghost logging
+    val isUpdate = todayEntries.isNotEmpty()
+    var selectedEntryId by remember(todayEntries) {
+        mutableStateOf(todayEntries.firstOrNull()?.id)
+    }
+    val timeFormat = remember { SimpleDateFormat("HH:mm", Locale.US) }
 
     AlertDialog(
         onDismissRequest  = onDismiss,
@@ -470,16 +489,53 @@ fun AddWasteDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Scale, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(12.dp))
-                TranslatedText("Record New Waste")
+                TranslatedText(if (isUpdate) "Update Today's Waste" else "Record New Waste")
             }
         },
         text              = {
             Column {
                 TranslatedText(
-                    if (canAdd) "Confirm the sensed weight."
-                    else "Waiting for stable sensor data...",
+                    when {
+                        !canAdd -> "Waiting for stable sensor data..."
+                        isUpdate -> "A record already exists today. Saving will update it instead of creating a duplicate."
+                        else -> "Confirm the sensed weight."
+                    },
                     style = MaterialTheme.typography.bodyMedium
                 )
+                if (todayEntries.size > 1) {
+                    Spacer(Modifier.height(12.dp))
+                    TranslatedText(
+                        "Select the record to update:",
+                        style = MaterialTheme.typography.labelLarge
+                    )
+                    Spacer(Modifier.height(4.dp))
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 240.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        todayEntries.forEach { entry ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { selectedEntryId = entry.id }
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = selectedEntryId == entry.id,
+                                    onClick = { selectedEntryId = entry.id }
+                                )
+                                Text(
+                                    "${timeFormat.format(Date(entry.timestamp))}  •  " +
+                                        "${String.format(Locale.US, "%.2f", entry.weightAdded)} kg",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
+                        }
+                    }
+                }
                 Spacer(Modifier.height(24.dp))
 
                 // Display Sensed Data prominently instead of Input
@@ -551,13 +607,31 @@ fun AddWasteDialog(
             }
         },
         confirmButton = {
-            Button(
-                onClick = { onAdd(currentSensorWeight) },
-                enabled = canAdd,
-                colors  = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary
-                )
-            ) { TranslatedText("Add", color = MaterialTheme.colorScheme.onPrimary) }
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                if (isUpdate && onAddNew != null) {
+                    OutlinedButton(
+                        onClick = { onAddNew(currentSensorWeight) },
+                        enabled = canAdd
+                    ) {
+                        TranslatedText("Add New Record")
+                    }
+                }
+                Button(
+                    onClick = { onUpdate(currentSensorWeight, selectedEntryId) },
+                    enabled = canAdd,
+                    colors  = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary
+                    )
+                ) {
+                    TranslatedText(
+                        if (isUpdate) "Update" else "Add",
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
+            }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
