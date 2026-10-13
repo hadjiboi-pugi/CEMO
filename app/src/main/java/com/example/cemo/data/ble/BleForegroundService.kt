@@ -49,6 +49,7 @@ class BleForegroundService : Service() {
         bleManager = BleManager(applicationContext)
         bleManager.registerBluetoothReceiver()  // ← start watching BT state
         createNotificationChannel()
+        com.example.cemo.data.notification.NotificationHelper.createNotificationChannels(this)
 
         // Observe the foreground notification setting
         serviceScope.launch {
@@ -58,6 +59,19 @@ class BleForegroundService : Service() {
                 } else {
                     stopForeground(STOP_FOREGROUND_REMOVE)
                 }
+            }
+        }
+
+        // Monitor sensor data for maximum weight threshold alerts
+        serviceScope.launch {
+            bleManager.sensorData.collect { data ->
+                data ?: return@collect
+                val tareOffset = AppState.dashboardStateCache.value.tareOffset
+                val weight = (data.weightKg - tareOffset).coerceAtLeast(0.0)
+                com.example.cemo.data.notification.NotificationHelper.checkWeightThreshold(
+                    applicationContext,
+                    weight
+                )
             }
         }
     }

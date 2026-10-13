@@ -10,6 +10,7 @@ class CemoApplication : Application(), ImageLoaderFactory {
     override fun onCreate() {
         super.onCreate()
         AppState.init(this)
+        com.example.cemo.data.notification.NotificationHelper.createNotificationChannels(this)
     }
 
     /**

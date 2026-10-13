@@ -69,6 +69,18 @@
     <string name="appearance_mode">Appearance Mode</string>
     <string name="preferred_language">Preferred Language</string>
     <string name="foreground_service_desc">Keep the app running in the background for live sensor updates.</string>
+    <string name="weight_settings">Weight Settings</string>
+    <string name="max_weight_threshold">Maximum Weight Threshold</string>
+    <string name="max_weight_threshold_desc">Set the maximum weight capacity before triggering full alerts.</string>
+    <string name="weight_threshold_alert">Weight Limit Alert</string>
+    <string name="weight_threshold_alert_desc">Receive a notification when the weight reaches or exceeds the threshold.</string>
+    <string name="set_weight_threshold">Set Weight Threshold</string>
+    <string name="enter_threshold_kg">Enter maximum weight in kg</string>
+    <string name="threshold_reached_title">Maximum Weight Reached!</string>
+    <string name="threshold_reached_body">Bin weight reached %1$.2f kg (Threshold: %2$.2f kg). Please empty the bin.</string>
+    <string name="threshold_reached_big_body">The container has reached its maximum weight capacity of %2$.2f kg (current load: %1$.2f kg). Please empty or replace the container.</string>
+    <string name="save">Save</string>
+    <string name="invalid_threshold">Please enter a valid weight between 0.5 and 50 kg.</string>
     
     <!-- Auth -->
     <string name="login">Login</string>
@@ -81,6 +93,15 @@
     <string name="sign_in_with_email">Sign in with Email</string>
     <string name="create_account">Create Account</string>
     <string name="continue_with_google">Continue with Google</string>
+    <string name="agree_to_terms">I agree to the Terms &amp; Conditions and Data Privacy</string>
+    <string name="terms_and_conditions">Terms and Conditions</string>
+    <string name="terms_and_conditions_title">Terms &amp; Conditions and Data Privacy</string>
+    <string name="data_collection_disclaimer_title">Data Collection Notice</string>
+    <string name="data_collection_disclaimer_short">CEMO collects account details and scale telemetry (weight, temperature, humidity) to provide smart waste monitoring and analytics.</string>
+    <string name="data_collection_full_text">1. Information We Collect\n• Account Information: Your name, email address, and profile details for identification and security.\n• Waste &amp; Sensor Telemetry: Sensed weight measurements, logging timestamps, ambient temperature, and humidity from connected CEMO devices.\n\n2. How We Use Your Data\n• To calculate real-time waste loads and environmental impact statistics.\n• To alert you when container thresholds are reached.\n• To synchronize historical records with your cloud account.\n\n3. Data Storage &amp; Privacy\n• Data is securely stored using Firebase Authentication and Firestore security rules.\n• We do not sell or distribute personal data or telemetry to third parties.\n\n4. Your Rights\n• You may view, edit, or delete logged waste records and update your profile at any time in the app.</string>
+    <string name="view_terms">View</string>
+    <string name="i_agree">I Agree</string>
+    <string name="close">Close</string>
     
     <!-- Profile -->
     <string name="profile">Profile</string>

@@ -38,6 +38,13 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.cemo.R
 
+import android.widget.Toast
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.ui.draw.clip
+import java.util.Locale
+import com.example.cemo.data.notification.NotificationHelper
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SettingsScreen(
@@ -50,6 +57,9 @@ fun SettingsScreen(
     val themeMode by AppState.themeMode.collectAsState()
     val currentLanguage by AppState.selectedLanguage.collectAsState()
     val isNotifEnabled by AppState.foregroundNotifEnabled.collectAsState()
+    val maxWeightThreshold by AppState.maxWeightThreshold.collectAsState()
+    val isWeightAlertEnabled by AppState.weightAlertEnabled.collectAsState()
+    val isDemoMode by AppState.isDemoMode.collectAsState()
     
     val isSystemDark = isSystemInDarkTheme()
     val isDark = when (themeMode) {
@@ -60,6 +70,45 @@ fun SettingsScreen(
     
     val context = LocalContext.current
     var showTareDialog by remember { mutableStateOf(false) }
+    var showWeightThresholdDialog by remember { mutableStateOf(false) }
+    var tapCount by remember { mutableStateOf(0) }
+    var lastTapTime by remember { mutableStateOf(0L) }
+
+    val packageInfo = remember(context) {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.getPackageInfo(
+                    context.packageName,
+                    android.content.pm.PackageManager.PackageInfoFlags.of(0)
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.getPackageInfo(context.packageName, 0)
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+    val versionName = packageInfo?.versionName ?: "1.0.0"
+    val versionCode = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+        packageInfo?.longVersionCode ?: 1L
+    } else {
+        @Suppress("DEPRECATION")
+        packageInfo?.versionCode?.toLong() ?: 1L
+    }
+
+    if (showWeightThresholdDialog) {
+        WeightThresholdDialog(
+            currentThreshold = maxWeightThreshold,
+            onDismiss = { showWeightThresholdDialog = false },
+            onConfirm = { newThreshold ->
+                showWeightThresholdDialog = false
+                AppState.setMaxWeightThreshold(context, newThreshold)
+                NotificationHelper.resetAlertState()
+                NotificationHelper.checkWeightThreshold(context, state.currentWeight)
+            }
+        )
+    }
 
     if (showTareDialog) {
         AlertDialog(
@@ -161,14 +210,85 @@ fun SettingsScreen(
 
                 // ── Notifications Section ─────────────────────────────────────
                 SettingsSection(title = stringResource(R.string.notifications), icon = Icons.Default.Notifications) {
-                    SettingsToggleItem(
-                        label = stringResource(R.string.foreground_notification),
-                        subLabel = stringResource(R.string.foreground_service_desc),
-                        initialValue = isNotifEnabled,
-                        onToggle = { enabled ->
-                            AppState.setForegroundNotifEnabled(context, enabled)
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        SettingsToggleItem(
+                            label = stringResource(R.string.foreground_notification),
+                            subLabel = stringResource(R.string.foreground_service_desc),
+                            initialValue = isNotifEnabled,
+                            onToggle = { enabled ->
+                                AppState.setForegroundNotifEnabled(context, enabled)
+                            }
+                        )
+
+                        HorizontalDivider(
+                            modifier = Modifier.fillMaxWidth(),
+                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+                        )
+
+                        SettingsToggleItem(
+                            label = stringResource(R.string.weight_threshold_alert),
+                            subLabel = stringResource(R.string.weight_threshold_alert_desc),
+                            initialValue = isWeightAlertEnabled,
+                            onToggle = { enabled ->
+                                AppState.setWeightAlertEnabled(context, enabled)
+                            }
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // ── Weight Settings Section ───────────────────────────────────
+                SettingsSection(title = stringResource(R.string.weight_settings), icon = Icons.Default.Scale) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.medium)
+                                .clickable { showWeightThresholdDialog = true }
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                                TranslatedText(
+                                    stringResource(R.string.max_weight_threshold),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                TranslatedText(
+                                    stringResource(R.string.max_weight_threshold_desc),
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+
+                            Surface(
+                                shape = MaterialTheme.shapes.small,
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                contentColor = MaterialTheme.colorScheme.primary
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "${String.format(Locale.US, "%.1f", maxWeightThreshold)} kg",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Icon(
+                                        Icons.Default.Edit,
+                                        contentDescription = "Edit",
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
                         }
-                    )
+                    }
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -216,6 +336,69 @@ fun SettingsScreen(
                             )
                         }
 
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // ── Version & Demo Mode Trigger (Tap 5 times) ─────────────────
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.medium)
+                        .clickable {
+                            val now = System.currentTimeMillis()
+                            if (now - lastTapTime > 2000L) {
+                                tapCount = 1
+                            } else {
+                                tapCount++
+                            }
+                            lastTapTime = now
+
+                            if (tapCount >= 5) {
+                                tapCount = 0
+                                val active = AppState.toggleDemoMode()
+                                if (active) {
+                                    Toast.makeText(context, "Demo Mode Activated: Simulating IoT Connection", Toast.LENGTH_LONG).show()
+                                } else {
+                                    Toast.makeText(context, "Demo Mode Deactivated", Toast.LENGTH_SHORT).show()
+                                }
+                            } else if (tapCount in 2..4) {
+                                val remaining = 5 - tapCount
+                                Toast.makeText(
+                                    context,
+                                    if (remaining == 1) "Tap 1 more time to enter Demo Mode" else "Tap $remaining more times to enter Demo Mode",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
+                        }
+                        .padding(vertical = 12.dp, horizontal = 16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "CEMO Monitor",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "Version $versionName ($versionCode)",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f)
+                    )
+                    if (isDemoMode) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Surface(
+                            shape = MaterialTheme.shapes.extraSmall,
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer
+                        ) {
+                            Text(
+                                text = "DEMO MODE ACTIVE",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                            )
+                        }
                     }
                 }
                 
@@ -379,4 +562,125 @@ fun SettingsToggleItem(
             )
         )
     }
+}
+
+@Composable
+fun WeightThresholdDialog(
+    currentThreshold: Double,
+    onDismiss: () -> Unit,
+    onConfirm: (Double) -> Unit
+) {
+    var textValue by remember { mutableStateOf(String.format(Locale.US, "%.1f", currentThreshold.coerceAtMost(50.0))) }
+    var isError by remember { mutableStateOf(false) }
+    val presets = listOf(5.0, 10.0, 20.0, 30.0, 50.0)
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Scale, null, tint = MaterialTheme.colorScheme.primary)
+                Spacer(Modifier.width(12.dp))
+                TranslatedText(
+                    stringResource(R.string.set_weight_threshold),
+                    style = MaterialTheme.typography.titleLarge
+                )
+            }
+        },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                TranslatedText(
+                    stringResource(R.string.enter_threshold_kg),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                OutlinedTextField(
+                    value = textValue,
+                    onValueChange = { input ->
+                        if (input.isEmpty() || input.matches(Regex("""^\d*\.?\d*$"""))) {
+                            textValue = input
+                            val parsed = input.toDoubleOrNull()
+                            isError = parsed == null || parsed <= 0.0 || parsed > 50.0
+                        }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { TranslatedText(stringResource(R.string.weight_kg)) },
+                    trailingIcon = {
+                        Text(
+                            "kg",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(end = 12.dp)
+                        )
+                    },
+                    singleLine = true,
+                    keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                        keyboardType = androidx.compose.ui.text.input.KeyboardType.Decimal
+                    ),
+                    isError = isError,
+                    supportingText = if (isError) {
+                        { TranslatedText(stringResource(R.string.invalid_threshold), color = MaterialTheme.colorScheme.error) }
+                    } else null,
+                    shape = MaterialTheme.shapes.small
+                )
+
+                // Quick Presets
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        "Quick Presets",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        presets.forEach { preset ->
+                            val isSelected = textValue.toDoubleOrNull() == preset
+                            SuggestionChip(
+                                onClick = {
+                                    textValue = String.format(Locale.US, "%.1f", preset)
+                                    isError = false
+                                },
+                                label = {
+                                    Text(
+                                        "${preset.toInt()} kg",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                colors = SuggestionChipDefaults.suggestionChipColors(
+                                    containerColor = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    val parsed = textValue.toDoubleOrNull()
+                    if (parsed != null && parsed > 0.0 && parsed <= 50.0) {
+                        onConfirm(parsed)
+                    } else {
+                        isError = true
+                    }
+                },
+                enabled = !isError && textValue.toDoubleOrNull() != null
+            ) {
+                TranslatedText(stringResource(R.string.save), fontWeight = FontWeight.Bold)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                TranslatedText(stringResource(R.string.cancel), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        shape = MaterialTheme.shapes.extraLarge,
+        containerColor = MaterialTheme.colorScheme.surface,
+        tonalElevation = 6.dp
+    )
 }

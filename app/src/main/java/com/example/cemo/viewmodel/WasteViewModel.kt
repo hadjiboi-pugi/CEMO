@@ -20,6 +20,7 @@ import com.google.firebase.auth.auth
 import com.google.firebase.firestore.firestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -86,6 +87,22 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
                 } else {
                     _bleStatus.value = BleStatus.Error("Bluetooth permissions required")
                     stopBleService()
+                }
+            }
+        }
+
+        viewModelScope.launch {
+            AppState.maxWeightThreshold.collect { threshold ->
+                _uiState.update { it.copy(maxCapacity = threshold) }
+            }
+        }
+
+        viewModelScope.launch {
+            AppState.isDemoMode.collect { enabled ->
+                if (enabled) {
+                    startDemoSimulation()
+                } else {
+                    stopDemoSimulation()
                 }
             }
         }
@@ -196,15 +213,21 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
                 data ?: return@collect
                 
                 val event = data.event?.uppercase()
+                val displayedWeight = (data.weightKg - _uiState.value.tareOffset).coerceAtLeast(0.0)
+                com.example.cemo.data.notification.NotificationHelper.checkWeightThreshold(
+                    getApplication(),
+                    displayedWeight
+                )
+
                 _uiState.update { state ->
-                    val displayedWeight = (data.weightKg - state.tareOffset).coerceAtLeast(0.0)
+                    val dispW = (data.weightKg - state.tareOffset).coerceAtLeast(0.0)
                     val nextIsTaring = when (event) {
                         "TARE_DONE" -> false
                         else -> state.isTaring
                     }
                     state.copy(
                         rawWeight     = data.weightKg,
-                        currentWeight = displayedWeight.coerceAtMost(state.maxCapacity),
+                        currentWeight = dispW.coerceAtMost(state.maxCapacity),
                         temperature   = data.temperatureC,
                         humidity      = data.humidityPct,
                         isTaring      = nextIsTaring
@@ -251,7 +274,13 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun stopScan()                       = bleService?.bleManager?.stopScan()
     fun connectToDevice(address: String) = withBlePermission { bleService?.bleManager?.connectToAddress(address) }
-    fun disconnectBle()                  = bleService?.bleManager?.disconnect()
+    fun disconnectBle() {
+        if (AppState.isDemoMode.value) {
+            AppState.setDemoMode(false)
+            return
+        }
+        bleService?.bleManager?.disconnect()
+    }
     fun connectBle()                     = startScan()
 
     // ── Waste operations ──────────────────────────────────────────────────────
@@ -316,6 +345,20 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
      * Hardware tare: Sends "TARE" command to the ESP32 to zero the scale.
      */
     fun tareHardware() {
+        if (AppState.isDemoMode.value) {
+            _uiState.update { it.copy(isTaring = true) }
+            viewModelScope.launch {
+                kotlinx.coroutines.delay(1200L)
+                demoBaseWeight = 0.0
+                _uiState.update { it.copy(
+                    tareOffset = 0.0,
+                    currentWeight = 0.0,
+                    rawWeight = 0.0,
+                    isTaring = false
+                ) }
+            }
+            return
+        }
         _uiState.update { it.copy(isTaring = true) }
         tareTimeoutJob?.cancel()
         tareTimeoutJob = viewModelScope.launch {
@@ -363,9 +406,75 @@ class WasteViewModel(application: Application) : AndroidViewModel(application) {
         serviceBound = ctx.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE)
     }
 
+    // ── Demo Simulation Mode ──────────────────────────────────────────────────
+    private var demoJob: Job? = null
+    private var demoBaseWeight: Double = 3.65
+
+    private fun startDemoSimulation() {
+        demoJob?.cancel()
+        _bleStatus.value = BleStatus.Connected("ESP32-CEMO (Demo)")
+        bleService?.updateStatus("Connected · ESP32-CEMO (Demo)")
+
+        demoJob = viewModelScope.launch {
+            var tick = 0
+            while (isActive && AppState.isDemoMode.value) {
+                kotlinx.coroutines.delay(1000L)
+                tick++
+
+                // Realistic gentle sensor fluctuation
+                val jitter = kotlin.math.sin(tick.toDouble() * 0.5) * 0.04
+                val simWeight = (demoBaseWeight + jitter).coerceAtLeast(0.0)
+                val simTemp = 28.2 + (kotlin.math.cos(tick.toDouble() * 0.3) * 0.4)
+                val simHum = 61.0 + (kotlin.math.sin(tick.toDouble() * 0.4) * 1.5)
+
+                val displayedWeight = (simWeight - _uiState.value.tareOffset).coerceAtLeast(0.0)
+                com.example.cemo.data.notification.NotificationHelper.checkWeightThreshold(
+                    getApplication(),
+                    displayedWeight
+                )
+
+                _uiState.update { state ->
+                    val dispW = (simWeight - state.tareOffset).coerceAtLeast(0.0)
+                    state.copy(
+                        rawWeight     = simWeight,
+                        currentWeight = dispW.coerceAtMost(state.maxCapacity),
+                        temperature   = simTemp,
+                        humidity      = simHum,
+                        isTaring      = false
+                    )
+                }
+
+                bleService?.updateSensorValues(
+                    "⚖ ${"%.2f".format(displayedWeight)}kg " +
+                    "🌡 ${"%.1f".format(simTemp)}°C " +
+                    "💧 ${"%.0f".format(simHum)}%"
+                )
+            }
+        }
+    }
+
+    private fun stopDemoSimulation() {
+        demoJob?.cancel()
+        demoJob = null
+        val manager = bleService?.bleManager
+        if (manager != null) {
+            _bleStatus.value = manager.status.value
+        } else {
+            _bleStatus.value = BleStatus.Disconnected
+            _uiState.update { it.copy(
+                currentWeight = 0.0,
+                rawWeight     = 0.0,
+                temperature   = 0.0,
+                humidity      = 0.0,
+                isTaring      = false
+            ) }
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         sensorJob?.cancel()
+        demoJob?.cancel()
         if (serviceBound) {
             getApplication<Application>().applicationContext.unbindService(serviceConnection)
             serviceBound = false

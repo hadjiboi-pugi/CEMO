@@ -69,6 +69,18 @@
     <string name="appearance_mode">Mode ng Hitsura</string>
     <string name="preferred_language">Mas gustong Wika</string>
     <string name="foreground_service_desc">Panatilihing tumatakbo ang app sa background para sa live na update ng sensor.</string>
+    <string name="weight_settings">Mga Setting ng Bigat</string>
+    <string name="max_weight_threshold">Pinakamataas na Limitasyon ng Bigat</string>
+    <string name="max_weight_threshold_desc">Itakda ang pinakamataas na kapasidad bago mag-alerto ng puno.</string>
+    <string name="weight_threshold_alert">Alerto sa Limitasyon ng Bigat</string>
+    <string name="weight_threshold_alert_desc">Makatanggap ng notification kapag umabot o lumagpas sa limitasyon ang bigat.</string>
+    <string name="set_weight_threshold">Itakda ang Limitasyon ng Bigat</string>
+    <string name="enter_threshold_kg">Ilagay ang pinakamataas na bigat sa kg</string>
+    <string name="threshold_reached_title">Naabot na ang Pinakamataas na Bigat!</string>
+    <string name="threshold_reached_body">Umabot na sa %1$.2f kg ang bigat ng basurahan (Limitasyon: %2$.2f kg). Paki-empty ang basurahan.</string>
+    <string name="threshold_reached_big_body">Naabot na ng lalagyan ang pinakamataas na kapasidad na %2$.2f kg (kasalukuyang load: %1$.2f kg). Paki-empty o palitan ang lalagyan.</string>
+    <string name="save">I-save</string>
+    <string name="invalid_threshold">Maglagay ng wastong bigat sa pagitan ng 0.5 at 50 kg.</string>
 
     <!-- Auth -->
     <string name="login">Mag-login</string>
@@ -81,6 +93,15 @@
     <string name="sign_in_with_email">Mag-sign in gamit ang Email</string>
     <string name="create_account">Gumawa ng Account</string>
     <string name="continue_with_google">Magpatuloy gamit ang Google</string>
+    <string name="agree_to_terms">Sumasang-ayon ako sa Mga Tuntunin at Pagkapribado ng Data</string>
+    <string name="terms_and_conditions">Mga Tuntunin at Kundisyon</string>
+    <string name="terms_and_conditions_title">Mga Tuntunin at Kundisyon at Pagkapribado ng Data</string>
+    <string name="data_collection_disclaimer_title">Paunawa sa Pagkolekta ng Data</string>
+    <string name="data_collection_disclaimer_short">Kinokolekta ng CEMO ang mga detalye ng account at telemetry ng timbangan (bigat, temperatura, halumigmig) para sa pagsusuri ng basura.</string>
+    <string name="data_collection_full_text">1. Impormasyong Kinokolekta Namin\n• Impormasyon ng Account: Ang iyong pangalan, email, at detalye ng profile para sa seguridad.\n• Telemetry ng Basura at Sensor: Mga sukat ng bigat, oras, temperatura, at halumigmig mula sa konektadong CEMO device.\n\n2. Paggamit ng Iyong Data\n• Upang kalkulahin ang estadistika sa basura at epekto sa kapaligiran.\n• Upang alertuhan ka kapag naabot na ang limitasyon ng bigat.\n• Upang i-synchronize ang mga talaan sa iyong cloud account.\n\n3. Pag-iimbak at Pagkapribado ng Data\n• Ligtas na nakaimbak ang data gamit ang Firebase Authentication at Firestore security rules.\n• Hindi namin ibinebenta ang personal na data o telemetry sa mga ikatlong partido.\n\n4. Iyong mga Karapatan\n• Maaari mong tingnan, i-update, o tanggalin ang iyong mga naitalang entry at profile anumang oras.</string>
+    <string name="view_terms">Tingnan</string>
+    <string name="i_agree">Sumasang-ayon Ako</string>
+    <string name="close">Isara</string>
 
     <!-- Profile -->
     <string name="profile">Profile</string>

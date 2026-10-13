@@ -19,6 +19,8 @@ object AppState {
     private const val THEME_KEY = "theme_mode"
     private const val LANG_KEY = "selected_language"
     private const val NOTIF_KEY = "foreground_notif_enabled"
+    private const val MAX_WEIGHT_KEY = "max_weight_threshold"
+    private const val WEIGHT_ALERT_KEY = "weight_alert_enabled"
 
     private val _themeMode = MutableStateFlow(ThemeMode.SYSTEM)
     val themeMode: StateFlow<ThemeMode> = _themeMode
@@ -28,6 +30,15 @@ object AppState {
 
     private val _foregroundNotifEnabled = MutableStateFlow(true)
     val foregroundNotifEnabled: StateFlow<Boolean> = _foregroundNotifEnabled
+
+    private val _maxWeightThreshold = MutableStateFlow(20.0)
+    val maxWeightThreshold: StateFlow<Double> = _maxWeightThreshold
+
+    private val _weightAlertEnabled = MutableStateFlow(true)
+    val weightAlertEnabled: StateFlow<Boolean> = _weightAlertEnabled
+
+    private val _isDemoMode = MutableStateFlow(false)
+    val isDemoMode: StateFlow<Boolean> = _isDemoMode
 
     private val _blePermissionGranted = MutableStateFlow(false)
     val blePermissionGranted: StateFlow<Boolean> = _blePermissionGranted
@@ -53,6 +64,10 @@ object AppState {
         val lang = prefs.getString(LANG_KEY, "English") ?: "English"
         _selectedLanguage.value = lang
         _foregroundNotifEnabled.value = prefs.getBoolean(NOTIF_KEY, true)
+        _maxWeightThreshold.value = prefs.getFloat(MAX_WEIGHT_KEY, 20.0f).toDouble().coerceIn(0.5, 50.0)
+        _weightAlertEnabled.value = prefs.getBoolean(WEIGHT_ALERT_KEY, true)
+
+        dashboardStateCache.value = dashboardStateCache.value.copy(maxCapacity = _maxWeightThreshold.value)
 
         // Initializing permission state
         _blePermissionGranted.value = hasBlePermissions(context)
@@ -88,6 +103,34 @@ object AppState {
             .edit()
             .putBoolean(NOTIF_KEY, enabled)
             .apply()
+    }
+
+    fun setMaxWeightThreshold(context: Context, threshold: Double) {
+        val clamped = threshold.coerceIn(0.5, 50.0)
+        _maxWeightThreshold.value = clamped
+        dashboardStateCache.value = dashboardStateCache.value.copy(maxCapacity = clamped)
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putFloat(MAX_WEIGHT_KEY, clamped.toFloat())
+            .apply()
+    }
+
+    fun setWeightAlertEnabled(context: Context, enabled: Boolean) {
+        _weightAlertEnabled.value = enabled
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(WEIGHT_ALERT_KEY, enabled)
+            .apply()
+    }
+
+    fun setDemoMode(enabled: Boolean) {
+        _isDemoMode.value = enabled
+    }
+
+    fun toggleDemoMode(): Boolean {
+        val next = !_isDemoMode.value
+        _isDemoMode.value = next
+        return next
     }
 
     fun setBlePermissionGranted(granted: Boolean) {
