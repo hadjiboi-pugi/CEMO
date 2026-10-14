@@ -108,29 +108,38 @@ class GoogleAuthUiClient(
                 val firstName = if (nameParts.size > 1) nameParts.dropLast(1).joinToString(" ") else fullName
                 val lastName = if (nameParts.size > 1) nameParts.last() else null
 
-                val userData = user?.let {
-                    User(
-                        uid = it.uid,
-                        email = it.email ?: "",
-                        displayName = it.displayName,
-                        firstName = firstName,
-                        lastName = lastName,
-                        photoUrl = it.photoUrl?.toString(),
-                        role = UserRole.USER,
-                        isIndividual = true,
-                        establishmentName = null,
-                        establishmentAddress = null,
-                        createdAt = Date(),
-                        updatedAt = Date()
-                    )
-                }
+                val uid = user?.uid
+                val existingData = if (uid != null) getUserData(uid) else null
 
-                if (userData != null) {
-                    saveUserToFirestore(userData)
+                val finalData = if (existingData != null) {
+                    existingData
+                } else {
+                    val creationDate = Date(user?.metadata?.creationTimestamp ?: System.currentTimeMillis())
+                    val userData = user?.let {
+                        User(
+                            uid = it.uid,
+                            email = it.email ?: "",
+                            displayName = it.displayName,
+                            firstName = firstName,
+                            lastName = lastName,
+                            photoUrl = it.photoUrl?.toString(),
+                            role = UserRole.USER,
+                            isIndividual = true,
+                            establishmentName = null,
+                            establishmentAddress = null,
+                            createdAt = creationDate,
+                            updatedAt = null
+                        )
+                    }
+
+                    if (userData != null) {
+                        saveUserToFirestore(userData)
+                    }
+                    userData
                 }
 
                 SignInResult(
-                    data = userData,
+                    data = finalData,
                     errorMessage = null
                 )
             } else {
@@ -147,7 +156,7 @@ class GoogleAuthUiClient(
         try {
             Log.d(TAG, "FIRESTORE: Starting write for UID=${user.uid}")
             
-            val userMap = hashMapOf(
+            val userMap = hashMapOf<String, Any?>(
                 "uid" to user.uid,
                 "email" to user.email,
                 "displayName" to user.displayName,
@@ -157,13 +166,19 @@ class GoogleAuthUiClient(
                 "role" to user.role.name,
                 "isIndividual" to user.isIndividual,
                 "establishmentName" to user.establishmentName,
-                "establishmentAddress" to user.establishmentAddress,
-                "updatedAt" to com.google.firebase.Timestamp.now()
+                "establishmentAddress" to user.establishmentAddress
             )
+
+            user.createdAt?.let {
+                userMap["createdAt"] = com.google.firebase.Timestamp(it)
+            }
+            if (user.updatedAt != null) {
+                userMap["updatedAt"] = com.google.firebase.Timestamp(user.updatedAt)
+            }
 
             val docRef = firestore.collection("users").document(user.uid)
             
-            // We use set with merge to create OR update without losing createdAt
+            // We use set with merge to create OR update without losing fields
             docRef.set(userMap, com.google.firebase.firestore.SetOptions.merge()).await()
 
             Log.i(TAG, "FIRESTORE: Successfully wrote to server!")
@@ -181,6 +196,10 @@ class GoogleAuthUiClient(
     }
 
     fun getSignedInUser(): User? = auth.currentUser?.let {
+        val cached = AppState.cachedUser.value
+        if (cached != null && cached.uid == it.uid) {
+            return cached
+        }
         User(
             uid = it.uid,
             email = it.email ?: "",
@@ -189,7 +208,7 @@ class GoogleAuthUiClient(
             role = UserRole.USER,
             isIndividual = true,
             createdAt = Date(it.metadata?.creationTimestamp ?: System.currentTimeMillis()),
-            updatedAt = Date(it.metadata?.lastSignInTimestamp ?: System.currentTimeMillis())
+            updatedAt = null
         )
     }
 
@@ -218,6 +237,7 @@ class GoogleAuthUiClient(
                 return SignInResult(null, "Email not verified — check your inbox", errorField = AuthField.EMAIL)
             }
 
+            val creationDate = Date(user?.metadata?.creationTimestamp ?: System.currentTimeMillis())
             val userData = user?.let {
                 User(
                     uid = it.uid,
@@ -226,14 +246,18 @@ class GoogleAuthUiClient(
                     photoUrl = it.photoUrl?.toString(),
                     role = UserRole.USER,
                     isIndividual = true,
-                    updatedAt = Date()
+                    createdAt = creationDate,
+                    updatedAt = null
                 )
             }
             if (userData != null) {
                 // Fetch full data from firestore to get firstName/lastName if they exist
                 val fullData = getUserData(userData.uid)
-                val finalData = fullData ?: userData
-                saveUserToFirestore(finalData)
+                val finalData = fullData ?: run {
+                    saveUserToFirestore(userData)
+                    userData
+                }
+                cacheUser(finalData)
                 SignInResult(finalData, null)
             } else {
                 SignInResult(null, "User data not found")
@@ -261,6 +285,7 @@ class GoogleAuthUiClient(
             // Explicit display name wins; otherwise fall back to the full name.
             val finalDisplayName = displayName.ifBlank { fullName }.ifBlank { null }
 
+            val creationDate = Date(user.metadata?.creationTimestamp ?: System.currentTimeMillis())
             val userData = User(
                 uid = user.uid,
                 email = user.email ?: email,
@@ -270,8 +295,8 @@ class GoogleAuthUiClient(
                 photoUrl = null,
                 role = UserRole.USER,
                 isIndividual = true,
-                createdAt = Date(),
-                updatedAt = Date()
+                createdAt = creationDate,
+                updatedAt = null
             )
             // Persist the record while still authenticated, then send the
             // verification email and sign back out — the user must verify and
@@ -287,7 +312,8 @@ class GoogleAuthUiClient(
     }
 
     suspend fun updateProfile(user: User) {
-        saveUserToFirestore(user)
+        val updated = if (user.updatedAt == null) user.copy(updatedAt = Date()) else user
+        saveUserToFirestore(updated)
     }
 
     /**
@@ -400,6 +426,32 @@ class GoogleAuthUiClient(
             val doc = firestore.collection("users").document(uid).get().await()
             if (doc.exists()) {
                 Log.d(TAG, "FIRESTORE: Document found")
+                val firestoreCreatedAt = doc.getTimestamp("createdAt")?.toDate()
+                val authCreatedAt = if (auth.currentUser?.uid == uid) {
+                    auth.currentUser?.metadata?.creationTimestamp?.let { Date(it) }
+                } else null
+                val finalCreatedAt = firestoreCreatedAt ?: authCreatedAt ?: Date()
+
+                val rawUpdatedAt = doc.getTimestamp("updatedAt")?.toDate()
+                // If updatedAt in Firestore was set during initial account creation (within 5 seconds of createdAt),
+                // treat it as not updated yet.
+                val finalUpdatedAt = if (rawUpdatedAt != null && Math.abs(rawUpdatedAt.time - finalCreatedAt.time) <= 5000L) {
+                    null
+                } else {
+                    rawUpdatedAt
+                }
+
+                // If createdAt was missing in Firestore, backfill it so Firestore is kept consistent
+                if (firestoreCreatedAt == null) {
+                    try {
+                        firestore.collection("users").document(uid).update(
+                            "createdAt", com.google.firebase.Timestamp(finalCreatedAt)
+                        )
+                    } catch (e: Exception) {
+                        Log.w(TAG, "Could not backfill createdAt: ${e.message}")
+                    }
+                }
+
                 User(
                     uid = doc.getString("uid") ?: uid,
                     email = doc.getString("email") ?: "",
@@ -411,8 +463,8 @@ class GoogleAuthUiClient(
                     isIndividual = doc.getBoolean("isIndividual") ?: true,
                     establishmentName = doc.getString("establishmentName"),
                     establishmentAddress = doc.getString("establishmentAddress"),
-                    createdAt = doc.getTimestamp("createdAt")?.toDate() ?: Date(),
-                    updatedAt = doc.getTimestamp("updatedAt")?.toDate() ?: Date()
+                    createdAt = finalCreatedAt,
+                    updatedAt = finalUpdatedAt
                 ).also { cacheUser(it) }
             } else {
                 Log.w(TAG, "FIRESTORE: Document does not exist for $uid")

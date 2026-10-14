@@ -160,7 +160,16 @@ fun ProfileScreen(
 
     PullToRefreshBox(
         isRefreshing = state.isRefreshing,
-        onRefresh = { viewModel.refresh() },
+        onRefresh = {
+            viewModel.refresh()
+            authUser?.uid?.let { uid ->
+                scope.launch {
+                    googleAuthUiClient.getUserData(uid)?.let { fullUser ->
+                        userData = fullUser
+                    }
+                }
+            }
+        },
         modifier = Modifier.fillMaxSize()
     ) {
         LazyColumn(
@@ -254,7 +263,7 @@ private fun HeroProfileHeader(
                     // Key the cache on the profile version rather than the URL: the
                     // avatar always lives at the same Storage path, so a re-upload
                     // would otherwise risk serving the previous cached image.
-                    val avatarCacheKey = "avatar_${user.uid}_${user.updatedAt.time}"
+                    val avatarCacheKey = "avatar_${user.uid}_${user.updatedAt?.time ?: user.createdAt?.time ?: 0L}"
                     AsyncImage(
                         model = ImageRequest.Builder(LocalContext.current)
                             .data(user.photoUrl)
@@ -593,24 +602,33 @@ private fun DynamicAccountLayout(user: User?) {
 
 @Composable
 private fun ActivityTimelineSection(user: User?, sdf: SimpleDateFormat) {
+    val timeFormat = remember { SimpleDateFormat("h:mm a", Locale.US) }
     Row(horizontalArrangement = Arrangement.spacedBy(Space.lg)) {
         TimelineCard(
-            "Created",
-            user?.createdAt?.let { sdf.format(it) } ?: "—",
-            Icons.Default.AddCircleOutline,
+            label = "Created",
+            value = user?.createdAt?.let { sdf.format(it) } ?: "—",
+            subtitle = user?.createdAt?.let { timeFormat.format(it) },
+            icon = Icons.Default.AddCircleOutline,
             modifier = Modifier.weight(1f)
         )
         TimelineCard(
-            "Updated",
-            user?.updatedAt?.let { sdf.format(it) } ?: "—",
-            Icons.Default.Update,
+            label = "Updated",
+            value = user?.updatedAt?.let { sdf.format(it) } ?: "—",
+            subtitle = user?.updatedAt?.let { timeFormat.format(it) },
+            icon = Icons.Default.Update,
             modifier = Modifier.weight(1f)
         )
     }
 }
 
 @Composable
-private fun TimelineCard(label: String, value: String, icon: ImageVector, modifier: Modifier) {
+private fun TimelineCard(
+    label: String,
+    value: String,
+    icon: ImageVector,
+    modifier: Modifier,
+    subtitle: String? = null
+) {
     Box(
         modifier = modifier
             .cemoSurface(shape = MaterialTheme.shapes.large)
@@ -619,7 +637,7 @@ private fun TimelineCard(label: String, value: String, icon: ImageVector, modifi
         Column {
             Icon(icon, null, tint = PrimaryGreen, modifier = Modifier.size(22.dp))
             Spacer(Modifier.height(Space.lg))
-            Text(
+            TranslatedText(
                 label.uppercase(),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -631,6 +649,14 @@ private fun TimelineCard(label: String, value: String, icon: ImageVector, modifi
                 fontSize = 14.sp,
                 color = MaterialTheme.colorScheme.onSurface
             )
+            if (subtitle != null) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
 }

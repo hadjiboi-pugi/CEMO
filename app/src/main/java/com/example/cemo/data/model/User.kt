@@ -18,6 +18,6 @@ data class User(
     val isIndividual: Boolean = true,
     val establishmentName: String? = null,
     val establishmentAddress: String? = null,
-    val createdAt: Date = Date(),
-    val updatedAt: Date = Date()
+    val createdAt: Date? = null,
+    val updatedAt: Date? = null
 )
